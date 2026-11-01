@@ -4,7 +4,7 @@ App móvil Android para consultar y ejecutar códigos USSD de forma rápida, org
 
 ![Plataforma](https://img.shields.io/badge/plataforma-Android-3DDC84?logo=android&logoColor=white)
 ![Capacitor](https://img.shields.io/badge/Capacitor-119EFF?logo=capacitor&logoColor=white)
-![Licencia](https://img.shields.io/badge/licencia-MIT-blue)
+![Licencia](https://img.shields.io/badge/licencia-MPL--2.0-brightgreen)
 
 ## Descripción
 
