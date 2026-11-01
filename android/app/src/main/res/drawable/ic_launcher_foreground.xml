@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Burbuja de menú con degradado violeta -> cian -->
+    <path android:pathData="M30,32 L78,32 Q84,32 84,38 L84,64 Q84,70 78,70 L52,70 L40,80 L40,70 L30,70 Q24,70 24,64 L24,38 Q24,32 30,32 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="24" android:startY="32"
+                android:endX="84" android:endY="80"
+                android:type="linear">
+                <item android:color="#7C5CFF" android:offset="0.0"/>
+                <item android:color="#22D3EE" android:offset="1.0"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Panel oscuro interior -->
+    <path
+        android:fillColor="#0A0D1F"
+        android:pathData="M32,38 L76,38 Q78,38 78,40 L78,62 Q78,64 76,64 L32,64 Q30,64 30,62 L30,40 Q30,38 32,38 Z"/>
+
+    <!-- Asterisco (*) -->
+    <path
+        android:strokeColor="#F1F5FF"
+        android:strokeWidth="2.6"
+        android:strokeLineCap="round"
+        android:pathData="M42,45 L42,57 M36.8,48 L47.2,54 M36.8,54 L47.2,48"/>
+
+    <!-- Numeral (#) -->
+    <path
+        android:strokeColor="#22D3EE"
+        android:strokeWidth="2.4"
+        android:strokeLineCap="round"
+        android:pathData="M58,45 L56,57 M65,45 L63,57 M53.5,48.5 L68,48.5 M52.5,53.5 L67,53.5"/>
+</vector>

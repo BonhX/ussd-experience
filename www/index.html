@@ -1,0 +1,1222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#0f172a">
+<title>USSD Pay Guard</title>
+<style>
+:root{
+  --bg:#0b1020;--card:#151c33;--card2:#1c2545;--line:#283357;--txt:#eef2ff;--mut:#94a3c7;
+  --pri:#7c5cff;--pri2:#22d3ee;--ok:#22c55e;--warn:#f59e0b;--bad:#ef4444;
+  --sat:env(safe-area-inset-top,0px);--sab:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;overflow-x:hidden;transition:background .3s}
+body{display:flex;flex-direction:column}
+header{padding:calc(var(--sat) + 14px) 18px 10px;background:linear-gradient(160deg,#2a1a6b,#0b1020 70%);transition:background .3s}
+header h1{margin:0;font-size:20px;display:flex;align-items:center;gap:8px}
+header h1 span.logo{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,var(--pri),var(--pri2));display:grid;place-items:center;font-size:16px}
+header h1 .simtag{margin-left:auto;font-size:11px;font-weight:600;padding:5px 9px;border-radius:20px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:var(--mut)}
+header h1 .simtag.on{color:var(--ok);border-color:rgba(34,197,94,.45)}
+header h1 .simtag.off{color:var(--warn);border-color:rgba(245,158,11,.45)}
+.budget{margin-top:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:12px 14px}
+.budget .row{display:flex;justify-content:space-between;font-size:13px;color:var(--mut)}
+.budget .big{font-size:22px;font-weight:700;color:var(--txt)}
+.bar{height:8px;border-radius:8px;background:rgba(255,255,255,.1);margin-top:8px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;border-radius:8px;background:linear-gradient(90deg,var(--ok),var(--pri2));transition:width .5s}
+main{flex:1;overflow-y:auto;padding:14px 14px calc(var(--sab) + 90px)}
+.tab{display:none;animation:fade .25s}
+.tab.on{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse{0%,100%{opacity:.5}50%{opacity:1}}
+@keyframes pop{0%{transform:scale(.6);opacity:0}60%{transform:scale(1.12);opacity:1}100%{transform:scale(1)}}
+@keyframes slideIn{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:none}}
+h2{font-size:15px;color:var(--mut);font-weight:600;margin:6px 4px 10px;text-transform:uppercase;letter-spacing:.06em}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:10px}
+.code{display:flex;align-items:center;gap:12px;cursor:pointer;transition:transform .12s}
+.code:active{transform:scale(.98)}
+.code .ic{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;font-size:20px;flex:none}
+.code .t{flex:1;min-width:0}
+.code .t b{display:block;font-size:15px}
+.code .t small{color:var(--mut);font-size:12px}
+.ed{background:none;border:none;color:var(--mut);font-size:20px;padding:10px;cursor:pointer;min-width:44px;min-height:44px}
+.shop{background:linear-gradient(135deg,rgba(124,92,255,.32),rgba(34,211,238,.14));border-color:rgba(124,92,255,.55);cursor:pointer;transition:transform .12s}
+.shop:active{transform:scale(.985)}
+.shop .top{display:flex;align-items:center;gap:12px}
+.shop .ic{width:50px;height:50px;border-radius:14px;background:linear-gradient(135deg,var(--pri),var(--pri2));display:grid;place-items:center;font-size:24px;flex:none;box-shadow:0 6px 18px rgba(124,92,255,.4)}
+.shop .t{flex:1;min-width:0}
+.shop .t b{display:block;font-size:17px}
+.shop .t small{color:var(--mut);font-size:12px}
+.shop .go{font-size:22px;color:var(--pri2)}
+nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:rgba(15,20,40,.96);backdrop-filter:blur(10px);border-top:1px solid var(--line);padding-bottom:var(--sab);z-index:5}
+nav button{flex:1;background:none;border:none;color:var(--mut);padding:10px 0 12px;font-size:11px;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer}
+nav button span{font-size:20px;transition:transform .2s}
+nav button.on{color:var(--txt)}
+nav button.on span{transform:scale(1.15)}
+.fab{position:fixed;right:18px;bottom:calc(var(--sab) + 78px);width:58px;height:58px;border-radius:18px;border:none;background:linear-gradient(135deg,var(--pri),var(--pri2));color:#fff;font-size:30px;box-shadow:0 10px 30px rgba(124,92,255,.5);z-index:6;cursor:pointer}
+.btn{border:none;border-radius:14px;padding:14px 16px;font-size:15px;font-weight:600;color:#fff;background:var(--card2);cursor:pointer;min-height:48px}
+.btn.pri{background:linear-gradient(135deg,var(--pri),#5b7cff)}
+.btn.ok{background:var(--ok)}
+.btn.bad{background:var(--bad)}
+.btn.ghost{background:transparent;border:1px solid var(--line)}
+.btn:active{opacity:.8}
+.btns{display:flex;gap:8px;margin-top:12px}
+.btns .btn{flex:1}
+label{display:block;font-size:13px;color:var(--mut);margin:12px 2px 6px}
+input,textarea,select{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--txt);border-radius:12px;padding:13px;font-size:16px;font-family:inherit;outline:none}
+input:focus,textarea:focus{border-color:var(--pri)}
+textarea{min-height:110px;resize:vertical}
+.mono{font-family:ui-monospace,monospace}
+.inrow{display:flex;gap:8px;align-items:stretch}
+.inrow input{flex:1;min-width:0}
+.inrow .btn{flex:none;padding:0 14px}
+.favAdd{margin-top:8px;animation:fade .2s}
+.merNew{margin-top:10px;animation:fade .2s}
+[hidden]{display:none!important}
+.sheet-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);opacity:0;pointer-events:none;transition:opacity .25s;z-index:10}
+.sheet-bg.on{opacity:1;pointer-events:auto}
+.sheet{position:fixed;left:0;right:0;bottom:0;max-height:90vh;overflow-y:auto;background:var(--card);border-radius:22px 22px 0 0;padding:10px 18px calc(var(--sab) + 18px);transform:translateY(105%);transition:transform .3s cubic-bezier(.2,.9,.3,1);z-index:11}
+.sheet.on{transform:none}
+.grab{width:42px;height:5px;border-radius:5px;background:var(--line);margin:4px auto 12px}
+.sheet h3{margin:0 0 4px;font-size:19px}
+.preview{margin-top:14px;padding:14px;border-radius:14px;background:#0a0f1f;border:1px dashed var(--pri);font-family:ui-monospace,monospace;font-size:20px;text-align:center;word-break:break-all;color:var(--pri2)}
+.resp{margin-top:14px;padding:14px;border-radius:14px;background:#0a0f1f;border:1px solid var(--line);font-size:15px;line-height:1.45;white-space:pre-wrap;word-break:break-word}
+.resp.title{font-weight:600}
+.sumbox{margin-top:14px;padding:12px;border-radius:14px;background:#0a0f1f;border:1px dashed var(--pri)}
+.sumbox .chips{margin-top:0}
+.sumbox .empty-sum{color:var(--mut);font-size:14px;text-align:center;padding:4px}
+.risk{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:12px;margin-top:8px;font-size:14px;line-height:1.35}
+.risk.high{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.4)}
+.risk.med{background:rgba(245,158,11,.13);border:1px solid rgba(245,158,11,.35)}
+.risk.low{background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.35)}
+.risk.info{background:rgba(34,211,238,.1);border:1px solid rgba(34,211,238,.3)}
+.autobadge{display:flex;align-items:center;gap:12px;margin-top:14px;padding:14px;border-radius:16px;animation:fade .3s}
+.autobadge.done{background:linear-gradient(135deg,rgba(34,197,94,.25),rgba(34,211,238,.12));border:1px solid rgba(34,197,94,.5)}
+.autobadge.failed{background:linear-gradient(135deg,rgba(239,68,68,.25),rgba(245,158,11,.1));border:1px solid rgba(239,68,68,.5)}
+.autobadge .bi{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-size:22px;flex:none;animation:pop .45s ease-out}
+.autobadge.done .bi{background:var(--ok)}
+.autobadge.failed .bi{background:var(--bad)}
+.autobadge b{display:block;font-size:16px}
+.autobadge small{color:var(--mut);font-size:12px;line-height:1.35}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.chip{padding:7px 10px;border-radius:10px;background:var(--card2);font-family:ui-monospace,monospace;font-size:14px;border:1px solid var(--line);color:var(--txt)}
+.chip small{display:block;font-family:system-ui;font-size:10px;color:var(--mut)}
+.chip.plain{font-family:system-ui;font-weight:600}
+.chip.fav{cursor:pointer;font-family:system-ui;font-weight:600;text-align:left;min-height:44px;padding:10px 14px;font-size:15px;transition:transform .12s,background .2s,border-color .2s}
+.chip.fav:active{transform:scale(.96)}
+.chip.fav.on{border-color:var(--pri);background:rgba(124,92,255,.28)}
+.chip.fav.new{border-style:dashed;color:var(--pri2)}
+.seg{display:flex;gap:6px;overflow-x:auto;margin-bottom:12px;padding-bottom:2px}
+.seg button{flex:none;border:1px solid var(--line);background:var(--card);color:var(--mut);border-radius:20px;padding:9px 14px;font-size:14px;cursor:pointer;min-height:40px}
+.seg button.on{background:var(--pri);color:#fff;border-color:var(--pri)}
+.simseg{flex-wrap:wrap;overflow:visible;margin:0}
+.tx{display:flex;align-items:center;gap:12px;cursor:pointer}
+.tx .dot{width:10px;height:10px;border-radius:50%;flex:none}
+.tx .t{flex:1;min-width:0}
+.tx .t b{display:block;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tx .t small{color:var(--mut);font-size:12px}
+.tx .amt{font-weight:700;font-size:16px;text-align:right}
+.tx .amt small{display:block;font-size:11px;font-weight:500}
+.empty{text-align:center;color:var(--mut);padding:40px 20px;font-size:14px}
+.empty div{font-size:44px;margin-bottom:8px}
+.stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px}
+.stats .card{margin:0;padding:10px;text-align:center}
+.stats b{display:block;font-size:17px}
+.stats small{color:var(--mut);font-size:11px}
+.colors{display:flex;gap:8px;flex-wrap:wrap}
+.colors button{width:38px;height:38px;border-radius:11px;border:2px solid transparent;font-size:18px;cursor:pointer}
+.colors button.on{border-color:#fff}
+.toast{position:fixed;left:50%;bottom:calc(var(--sab) + 150px);transform:translateX(-50%) translateY(20px);background:#fff;color:#111;padding:12px 18px;border-radius:14px;font-size:14px;font-weight:600;opacity:0;transition:.25s;z-index:20;pointer-events:none;max-width:88vw;text-align:center}
+.toast.on{opacity:1;transform:translateX(-50%)}
+.hint{font-size:12px;color:var(--mut);margin-top:6px;line-height:1.4}
+.hint.good{color:var(--ok)}
+.hint.warn{color:var(--warn)}
+.status-btns{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px}
+.mer{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
+.mer:last-child{border-bottom:none}
+.mer .mi{width:38px;height:38px;border-radius:11px;background:rgba(124,92,255,.18);display:grid;place-items:center;flex:none}
+.mer .t{flex:1;min-width:0}
+.mer .t b{display:block;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mer .t small{color:var(--mut);font-family:ui-monospace,monospace;font-size:13px}
+.addgrid{display:grid;grid-template-columns:1.3fr 1fr;gap:8px;margin-top:10px}
+.switchrow{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.switch{position:relative;width:54px;height:32px;flex:none;margin:0;cursor:pointer}
+.switch input{position:absolute;opacity:0;width:0;height:0}
+.switch span{position:absolute;inset:0;background:var(--card2);border:1px solid var(--line);border-radius:32px;transition:.25s}
+.switch span::after{content:'';position:absolute;left:3px;top:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:transform .25s}
+.switch input:checked+span{background:var(--pri);border-color:var(--pri)}
+.switch input:checked+span::after{transform:translateX(22px)}
+.sec-title{display:flex;align-items:center;gap:8px;font-size:16px}
+.spinner{width:46px;height:46px;border-radius:50%;border:4px solid var(--line);border-top-color:var(--pri2);animation:spin .9s linear infinite;margin:18px auto 10px}
+.sending{text-align:center;color:var(--mut);font-size:14px;animation:pulse 1.6s ease-in-out infinite}
+.simpick{display:grid;gap:8px;margin-top:12px}
+.simpick .btn{display:flex;align-items:center;gap:12px;text-align:left;width:100%}
+.simpick .btn .sn{width:38px;height:38px;border-radius:11px;background:linear-gradient(135deg,var(--pri),var(--pri2));display:grid;place-items:center;font-weight:800;flex:none}
+.simpick .btn small{display:block;color:var(--mut);font-weight:500;font-size:12px}
+.divider{height:1px;background:var(--line);margin:14px 0}
+/* In-app USSD menu */
+.crumbs{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-top:10px;font-size:12px;color:var(--mut)}
+.crumbs span.c{padding:4px 8px;border-radius:8px;background:var(--card2);border:1px solid var(--line);font-family:ui-monospace,monospace;color:var(--txt)}
+.menu{display:grid;gap:8px;margin-top:12px}
+.menuopt{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:var(--card2);border:1px solid var(--line);color:var(--txt);border-radius:14px;padding:12px 14px;min-height:52px;font-size:15px;font-family:inherit;cursor:pointer;animation:slideIn .25s both;transition:transform .12s,border-color .2s}
+.menuopt:active{transform:scale(.98);border-color:var(--pri)}
+.menuopt .k{width:32px;height:32px;border-radius:10px;background:linear-gradient(135deg,var(--pri),var(--pri2));display:grid;place-items:center;font-weight:800;font-size:14px;flex:none;color:#fff}
+.menuopt .l{flex:1;min-width:0;word-break:break-word}
+.menuopt .ar{color:var(--pri2);font-size:18px}
+.menuopt.back .k{background:var(--line)}
+.replybox{margin-top:12px}
+
+/* AMOLED mode */
+body.amoled{--bg:#000;--card:#000;--card2:#121212;--line:#222;--mut:#8b93ad}
+body.amoled header{background:#000}
+body.amoled .budget{background:#0a0a0a;border-color:#1e1e1e}
+body.amoled nav{background:#000}
+body.amoled .sheet{background:#050505;border-top:1px solid #222}
+body.amoled .preview,body.amoled .sumbox,body.amoled .resp{background:#000}
+body.amoled .shop{background:#07051a}
+body.amoled .fab{box-shadow:0 8px 24px rgba(124,92,255,.35)}
+</style>
+</head>
+<body>
+<header>
+  <h1><span class="logo">🛡️</span>USSD Pay Guard<span class="simtag" id="simTag">📶 Direct</span></h1>
+  <div class="budget">
+    <div class="row"><span>Spent this month</span><span id="bLeft"></span></div>
+    <div class="big" id="bSpent">0</div>
+    <div class="bar"><i id="bBar"></i></div>
+  </div>
+</header>
+
+<main>
+  <section class="tab on" id="tab-pay">
+    <h2>Shopping</h2>
+    <div id="shopCard"></div>
+    <h2 style="margin-top:16px">Your services</h2>
+    <div id="codeList"></div>
+    <p class="hint">Tap Shop to pay a merchant: pick one of your favorites by name or enter a new merchant code. The app builds the menu steps for you. Your DNI and PIN auto-fill from Settings → Profile. Every code is sent in the background through the phone's telephony service — the dialer and system USSD pop-ups are never shown. Replies, menus and confirmations all appear on the app's own screens.</p>
+  </section>
+
+  <section class="tab" id="tab-check">
+    <h2>Intercept &amp; check</h2>
+    <div class="card">
+      <label style="margin-top:0">Paste a USSD code or a payment confirmation message</label>
+      <textarea id="chkIn" placeholder="*182*8*1*123456*5000#  or  'You have paid 5,000 to SuperMart. Ref TX93KD...'"></textarea>
+      <div class="btns"><button class="btn ghost" id="chkPaste">📋 Paste</button><button class="btn pri" id="chkGo">🔍 Analyze</button></div>
+      <p class="hint">Tip: analyze a short code like *555# and tap Send to browse your provider's menu inside the app, with big buttons for each option.</p>
+    </div>
+    <div id="chkOut"></div>
+  </section>
+
+  <section class="tab" id="tab-hist">
+    <h2>Transactions</h2>
+    <div class="stats">
+      <div class="card"><b id="sDone">0</b><small>Confirmed</small></div>
+      <div class="card"><b id="sPend">0</b><small>Pending</small></div>
+      <div class="card"><b id="sFail">0</b><small>Failed</small></div>
+    </div>
+    <div class="seg" id="histSeg">
+      <button data-f="all" class="on">All</button><button data-f="pending">Pending</button><button data-f="done">Confirmed</button><button data-f="failed">Failed</button>
+    </div>
+    <div id="txList"></div>
+    <button class="btn ghost" style="width:100%;margin-top:8px" id="exportBtn">⬇️ Export CSV</button>
+  </section>
+
+  <section class="tab" id="tab-set">
+    <h2>Settings</h2>
+
+    <div class="card">
+      <div class="sec-title"><b>👤 Profile</b></div>
+      <label>DNI (13 digits)</label>
+      <input id="setDni" class="mono" inputmode="numeric" maxlength="13" autocomplete="off" placeholder="0801199912345">
+      <div class="hint" id="dniMsg">May start with zero.</div>
+      <label>PIN (4 characters)</label>
+      <div class="inrow">
+        <input id="setPin" class="mono" type="password" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="••••">
+        <button class="btn ghost" id="pinEye" aria-label="Show PIN">👁️</button>
+      </div>
+      <div class="hint" id="pinMsg"></div>
+      <p class="hint">Your DNI and PIN auto-fill the {dni} and {pin} fields of your codes (for example the wallet balance check). They are stored only on this device and the PIN is masked everywhere in the app.</p>
+    </div>
+
+    <div class="card">
+      <div class="sec-title"><b>📶 In-app USSD</b></div>
+      <div class="hint" style="margin-top:2px">Codes are sent with Android's TelephonyManager.sendUssdRequest(). The phone dialer and the system USSD dialog are never opened.</div>
+      <div id="ussdStatus"></div>
+      <div class="divider"></div>
+      <div class="switchrow">
+        <div><b>🤖 Auto-confirm from reply</b><div class="hint" style="margin-top:2px">Read the provider's reply and update the pending payment automatically when it reports success with a matching amount or reference, or a clear failure.</div></div>
+        <label class="switch"><input type="checkbox" id="setAuto"><span></span></label>
+      </div>
+      <label>SIM used for USSD</label>
+      <div class="seg simseg" id="simSeg"></div>
+      <div class="hint" id="simMsg"></div>
+      <div class="btns"><button class="btn ghost" id="permBtn">🔓 Grant phone permission</button><button class="btn ghost" id="simRefresh">🔄 Detect SIMs</button></div>
+      <p class="hint">Requires Android 8.0+ and CALL_PHONE. READ_PHONE_STATE is used to enumerate SIM subscriptions when Detect SIMs is selected. Choose a SIM before sending to use that subscription; otherwise Android’s default SIM is used. Menus continue in-app using a chained code (e.g. *555# → *555*3#); no dialer is opened.</p>
+    </div>
+
+    <div class="card">
+      <div class="sec-title"><b>⭐ Favorite merchants</b></div>
+      <div id="merList"></div>
+      <div class="addgrid">
+        <input id="merName" placeholder="Name, e.g. Doña Ray" maxlength="40">
+        <input id="merCode" class="mono" inputmode="numeric" placeholder="Code, e.g. 11732" maxlength="20">
+      </div>
+      <button class="btn pri" id="merAdd" style="width:100%;margin-top:8px">➕ Add favorite</button>
+      <p class="hint">When you shop, favorites appear only by the name you gave them.</p>
+    </div>
+
+    <div class="card">
+      <div class="sec-title"><b>🛒 Shop payment route</b></div>
+      <label>Menu route used for "Pay merchant"</label>
+      <input id="setShopTpl" class="mono" autocomplete="off" placeholder="*555*3*3*{merchant}*{amount}#">
+      <div class="hint" id="shopMsg"></div>
+      <p class="hint">Default for Tigo Money: *555 → 3 Pagos → 3 Pagar Comercio, then merchant code and amount. You only need to change this if your provider uses a different menu.</p>
+    </div>
+
+    <div class="card">
+      <div class="switchrow">
+        <div><b>🌑 AMOLED mode</b><div class="hint" style="margin-top:2px">Pure black theme that saves battery on OLED screens.</div></div>
+        <label class="switch"><input type="checkbox" id="setAmoled"><span></span></label>
+      </div>
+    </div>
+
+    <div class="card">
+      <label style="margin-top:0">Currency symbol / code</label>
+      <input id="setCur" maxlength="6">
+      <label>Monthly shopping budget</label>
+      <input id="setBudget" type="number" inputmode="decimal" min="0">
+      <label>Large amount alert (warn above)</label>
+      <input id="setLarge" type="number" inputmode="decimal" min="0">
+      <p class="hint">Settings save automatically.</p>
+    </div>
+    <div class="card">
+      <b>Danger zone</b>
+      <div class="btns"><button class="btn bad" id="clearHist">Clear history</button><button class="btn ghost" id="resetCodes">Reset codes</button></div>
+    </div>
+    <p class="hint">The app intercepts codes <i>before</i> they are sent, checks for scams such as call-forwarding tricks, and keeps a clean record of your shopping payments. All USSD traffic happens inside the app.</p>
+  </section>
+</main>
+
+<button class="fab" id="fab">+</button>
+
+<nav id="nav">
+  <button data-t="pay" class="on"><span>💳</span>Pay</button>
+  <button data-t="check"><span>🔍</span>Check</button>
+  <button data-t="hist"><span>🧾</span>History</button>
+  <button data-t="set"><span>⚙️</span>Settings</button>
+</nav>
+
+<div class="sheet-bg" id="sheetBg"></div>
+<div class="sheet" id="sheet"><div class="grab"></div><div id="sheetBody"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ---------- Storage (Acornix or localStorage fallback) ---------- */
+const DB = (function(){
+  if (window.Acornix && window.Acornix.db) return window.Acornix.db;
+  const P='ussdguard_';
+  const read=n=>{try{return JSON.parse(localStorage.getItem(P+'c_'+n))||[]}catch(e){return[]}};
+  const write=(n,a)=>localStorage.setItem(P+'c_'+n,JSON.stringify(a));
+  const match=(d,w)=>!w||Object.keys(w).every(k=>{const c=w[k];const v=d[k];
+    if(c&&typeof c==='object'){if('$gt'in c)return v>c.$gt;if('$lt'in c)return v<c.$lt;if('$in'in c)return c.$in.includes(v);if('$contains'in c)return String(v||'').includes(c.$contains);return true}
+    return v===c});
+  return{
+    collection(n){return{
+      async add(doc){const a=read(n);const now=Date.now();const d={...doc,_id:now.toString(36)+Math.random().toString(36).slice(2,7),_created:now,_updated:now};a.push(d);write(n,a);return d},
+      async list(o={}){let a=read(n).filter(d=>match(d,o.where));if(o.orderBy){a.sort((x,y)=>x[o.orderBy]>y[o.orderBy]?1:-1);if(o.desc)a.reverse()}if(o.limit)a=a.slice(0,o.limit);return a},
+      async get(id){return read(n).find(d=>d._id===id)||null},
+      async update(id,p){const a=read(n);const i=a.findIndex(d=>d._id===id);if(i<0)return null;a[i]={...a[i],...p,_updated:Date.now()};write(n,a);return a[i]},
+      async set(id,doc){const a=read(n);const i=a.findIndex(d=>d._id===id);const d={...doc,_id:id,_updated:Date.now(),_created:i>=0?a[i]._created:Date.now()};if(i>=0)a[i]=d;else a.push(d);write(n,a);return d},
+      async remove(id){write(n,read(n).filter(d=>d._id!==id))},
+      async count(w){return read(n).filter(d=>match(d,w)).length},
+      async clear(){write(n,[])}
+    }},
+    async get(k){const v=localStorage.getItem(P+'k_'+k);return v==null?null:JSON.parse(v)},
+    async set(k,v){localStorage.setItem(P+'k_'+k,JSON.stringify(v))},
+    async remove(k){localStorage.removeItem(P+'k_'+k)}
+  };
+})();
+const codesCol=DB.collection('codes');
+const txCol=DB.collection('transactions');
+const merCol=DB.collection('merchants');
+
+/* ---------- State ---------- */
+const DEFAULT_SHOP='*555*3*3*{merchant}*{amount}#';
+const BALANCE_TPL='*555*1*2*{pin}#';
+let codes=[],txs=[],merchants=[],settings={cur:'$',budget:500,large:200,amoled:false,shopTpl:DEFAULT_SHOP,ussdDirect:true,simSlot:'auto',autoConfirm:true},profile={dni:'',pin:''},histFilter='all',curTab='pay';
+let sims=[],simsDetected=false;
+const capacitor=window.Capacitor||null;
+const nativePlatform=!!(capacitor&&typeof capacitor.isNativePlatform==='function'&&capacitor.isNativePlatform());
+let nativeUssd=null,nativeUssdAvailable=false;
+if(nativePlatform&&capacitor){
+  try{nativeUssd=typeof capacitor.registerPlugin==='function'?capacitor.registerPlugin('Ussd'):(capacitor.Plugins&&capacitor.Plugins.Ussd)||null}catch(e){nativeUssd=(capacitor.Plugins&&capacitor.Plugins.Ussd)||null}
+  nativeUssdAvailable=!!(nativeUssd&&typeof nativeUssd.send==='function');
+}
+const ICONS=['🛒','💸','🏪','📱','🏦','⚡','🧾','🎁','💵'];
+const COLORS=['#7c5cff','#22d3ee','#22c55e','#f59e0b','#ef4444','#ec4899','#3b82f6','#14b8a6'];
+const DEFAULT_CODES=[
+  {name:'Wallet balance',template:BALANCE_TPL,icon:'🏦',color:'#3b82f6',order:0},
+  {name:'Pay merchant (example)',template:'*182*8*1*{merchant}*{amount}#',icon:'🛒',color:'#7c5cff',order:1},
+  {name:'Send money (example)',template:'*182*1*1*{phone}*{amount}#',icon:'💸',color:'#22c55e',order:2},
+  {name:'Buy airtime (example)',template:'*131*{amount}#',icon:'📱',color:'#f59e0b',order:3},
+  {name:'Withdraw cash (example)',template:'*182*2*{agent}*{amount}#',icon:'💵',color:'#14b8a6',order:4}
+];
+const isMerField=p=>/merchant|agent|till|shop|store/i.test(p);
+const shopTpl=()=>settings.shopTpl||DEFAULT_SHOP;
+const shopCode=()=>({name:'Pay merchant',template:shopTpl(),icon:'🛒',color:'#7c5cff'});
+
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const money=n=>settings.cur+' '+(Number(n)||0).toLocaleString(undefined,{maximumFractionDigits:2});
+const clean=v=>String(v||'').replace(/[^\w]/g,'');
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('on'),2400)}
+function buzz(ms){try{if(window.Acornix&&Acornix.vibrate)Acornix.vibrate(ms).catch(()=>{})}catch(e){}}
+
+/* ---------- Load ---------- */
+async function migrateBalance(){
+  if(await DB.get('balTplV2'))return;
+  const b=codes.find(c=>/balance|saldo/i.test(c.name||''))||codes.find(c=>c.template==='*123#');
+  if(b){if(b.template!==BALANCE_TPL)await codesCol.update(b._id,{template:BALANCE_TPL})}
+  else await codesCol.add({...DEFAULT_CODES[0],order:-1});
+  await DB.set('balTplV2',true);
+  codes=await codesCol.list({orderBy:'order'});
+}
+async function load(){
+  try{
+    const s=await DB.get('settings');if(s)settings={...settings,...s};
+    if(!settings.shopTpl)settings.shopTpl=DEFAULT_SHOP;
+    settings.ussdDirect=true;
+    if(typeof settings.autoConfirm!=='boolean')settings.autoConfirm=true;
+    if(!settings.simSlot)settings.simSlot='auto';
+    const p=await DB.get('profile');if(p)profile={dni:'',pin:'',...p};
+    codes=await codesCol.list({orderBy:'order'});
+    if(!codes.length&&!(await DB.get('seeded'))){for(const c of DEFAULT_CODES)await codesCol.add(c);await DB.set('seeded',true);await DB.set('balTplV2',true);codes=await codesCol.list({orderBy:'order'})}
+    await migrateBalance();
+    txs=await txCol.list({orderBy:'_created',desc:true});
+    merchants=await merCol.list({orderBy:'name'});
+  }catch(e){toast('Could not load saved data')}
+  renderAll();
+  if(!simsDetected)detectSims().then(renderUssd);
+}
+function renderAll(){applyTheme();renderBudget();renderShop();renderCodes();renderHist();renderSettings();renderMerchants();renderUssd()}
+window.addEventListener('acornixdata',load);
+
+/* ---------- Theme ---------- */
+function applyTheme(){
+  document.body.classList.toggle('amoled',!!settings.amoled);
+  const m=document.querySelector('meta[name=theme-color]');if(m)m.content=settings.amoled?'#000000':'#0f172a';
+}
+
+/* ---------- Native USSD (TelephonyManager.sendUssdRequest via bridge) ---------- */
+function ussdFn(){
+  if(nativePlatform)return nativeUssdAvailable?(code,subId)=>nativeUssd.send(subId!=null?{code,subId}:{code}):null;
+  const A=window.Acornix||{};
+  const cands=[[A,'sendUssdRequest'],[A,'sendUssd'],[A,'ussd'],[window.AcornixUssd,'send'],[window.Android,'sendUssdRequest'],[window.Android,'sendUssd']];
+  for(const [o,k] of cands){if(o&&typeof o[k]==='function')return (code,subId,slot)=>Promise.resolve(o[k](code,subId,slot))}
+  return null;
+}
+const directOn=()=>!!ussdFn();
+async function detectSims(){
+  simsDetected=true;
+  if(nativePlatform&&nativeUssd){
+    try{const r=await nativeUssd.isAvailable();nativeUssdAvailable=!!(r&&r.available)}catch(e){nativeUssdAvailable=false}
+    if(typeof nativeUssd.listSims==='function'){
+      try{
+        let r=await nativeUssd.listSims();
+        if(typeof r==='string'){try{r=JSON.parse(r)}catch(e){r={}}}
+        const list=Array.isArray(r)?r:(r&&Array.isArray(r.sims)?r.sims:[]);
+        sims=list.map((s,i)=>{
+          const slot=Number(s.slot??s.slotIndex??s.simSlotIndex??i)||0;
+          return{subId:s.subId??s.subscriptionId??s.id??null,slot,label:String(s.carrier||s.carrierName||s.displayName||s.name||('SIM '+(slot+1))),number:s.number||s.phoneNumber||''};
+        }).sort((a,b)=>a.slot-b.slot);
+      }catch(e){sims=[]}
+    }else sims=[];
+    return;
+  }
+  const A=window.Acornix||{};
+  const fn=['simCards','listSims','getSims','sims','subscriptions'].map(k=>A[k]).find(f=>typeof f==='function');
+  if(!fn){sims=[];return}
+  try{
+    let r=await fn.call(A);if(typeof r==='string'){try{r=JSON.parse(r)}catch(e){r=[]}}
+    sims=(Array.isArray(r)?r:[]).map((s,i)=>{
+      const slot=Number(s.slot??s.slotIndex??s.simSlotIndex??i)||0;
+      return{subId:s.subId??s.subscriptionId??s.id??null,slot,label:String(s.carrier||s.carrierName||s.displayName||s.name||('SIM '+(slot+1))),number:s.number||s.phoneNumber||''};
+    }).sort((a,b)=>a.slot-b.slot);
+  }catch(e){sims=[]}
+}
+function simList(){return sims.length?sims:(nativePlatform&&nativeUssd?[]:[{subId:null,slot:0,label:'SIM 1',number:''},{subId:null,slot:1,label:'SIM 2',number:''}])}
+function simTitle(s){return s?('SIM '+(s.slot+1)+(s.label&&s.label!=='SIM '+(s.slot+1)?' · '+s.label:'')):'Default SIM'}
+async function ensurePerm(){
+  if(nativePlatform&&nativeUssd){
+    try{
+      const granted=r=>!!r&&r.call==='granted';
+      const phoneGranted=r=>!!r&&r.phone==='granted';
+      let state=typeof nativeUssd.checkPermissions==='function'?await nativeUssd.checkPermissions():null;
+      if(!granted(state)){
+        if(typeof nativeUssd.requestPermissions!=='function')return false;
+        state=await nativeUssd.requestPermissions({permissions:['call']});
+      }
+      if(!granted(state))return false;
+      // SIM enumeration is optional for sending; only request this when user has asked to pick a SIM.
+      if(settings.simSlot==='ask'&&!phoneGranted(state)&&typeof nativeUssd.requestPermissions==='function'){
+        state=await nativeUssd.requestPermissions({permissions:['phone']});
+      }
+      return settings.simSlot!=='ask'||phoneGranted(state);
+    }catch(e){return false}
+  }
+  const A=window.Acornix||{};
+  const permissions=['android.permission.CALL_PHONE','android.permission.READ_PHONE_STATE'];
+  const denied=r=>r===false||r==='denied'||r==='never_ask_again'||
+    (r&&typeof r==='object'&&(r.granted===false||r.denied===true||r.neverAskAgain===true||
+      permissions.some(p=>r[p]===false||r[p]==='denied')));
+  try{
+    if(typeof A.requestPermissions==='function'){
+      const r=await A.requestPermissions(permissions);
+      return !denied(r);
+    }
+    if(typeof A.requestPermission==='function'){
+      for(const permission of permissions){
+        const r=await A.requestPermission(permission);
+        if(denied(r))return false;
+      }
+    }
+    // Hosts without a permission bridge can still be pre-granted; native errors are mapped below.
+    return true;
+  }catch(e){return false}
+}
+function pickSim(){
+  const mode=settings.simSlot;
+  if(mode==='auto')return Promise.resolve(null);
+  if(/^sim\d$/.test(mode)){const slot=Number(mode.slice(3));return Promise.resolve(simList().find(s=>s.slot===slot)||{subId:null,slot,label:'SIM '+(slot+1),number:''})}
+  const list=simList();
+  if(list.length===1)return Promise.resolve(list[0]);
+  return new Promise(res=>{
+    openSheet(`<h3>📶 Choose SIM</h3><p class="hint">Which SIM should send this code?</p>
+      <div class="simpick">${list.map((s,i)=>`<button class="btn ghost" data-sim="${i}"><span class="sn">${s.slot+1}</span><span>${esc(s.label)}<small>${esc(s.number||'Slot '+(s.slot+1))}</small></span></button>`).join('')}</div>
+      <div class="btns"><button class="btn ghost" id="simNo">Cancel</button></div>`);
+    $('#sheetBody').querySelectorAll('[data-sim]').forEach(b=>b.onclick=()=>{buzz(15);res(list[Number(b.dataset.sim)])});
+    $('#simNo').onclick=()=>{closeSheet();res(false)};
+  });
+}
+function withTimeout(p,ms){return Promise.race([p,new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),ms))])}
+function respText(r){
+  if(r==null)return '';
+  if(typeof r==='string'){try{const j=JSON.parse(r);if(j&&typeof j==='object')return respText(j)}catch(e){}return r}
+  if(typeof r==='object'){
+    if(r.error||r.ok===false||r.success===false){const e=new Error(String(r.error||r.message||'USSD request failed'));e.code=r.code||r.failureCode;throw e}
+    return String(r.response??r.message??r.text??r.result??'');
+  }
+  return String(r);
+}
+function friendlyErr(e){
+  const m=String((e&&e.message)||e||'');
+  const raw=e&&(e.failureCode??e.code);
+  const c=Number(raw);
+  if(/timeout/i.test(m))return 'No hubo respuesta de la red después de 45 segundos. Inténtalo de nuevo.';
+  if(/permission|denied|security/i.test(m))return 'Falta el permiso Teléfono (CALL_PHONE) o Estado del teléfono (READ_PHONE_STATE). Concédelo en los ajustes de Android y vuelve a intentarlo.';
+  if(c===-1||c===-3||/RETURN_FAILURE|-1|-3/.test(m))return 'La red rechazó la solicitud o la SIM está ocupada. Espera unos segundos e inténtalo de nuevo.';
+  if(c===-2||c===-4||/SERVICE_UNAVAILABLE|-2|-4/.test(m))return 'El servicio USSD no está disponible en esta SIM en este momento.';
+  if(c===-5||/NETWORK|-5/.test(m))return 'Error de red al enviar el código USSD. Comprueba la cobertura y vuelve a intentarlo.';
+  if(c===-6||/OTHER|-6/.test(m))return 'Android no pudo completar la solicitud USSD. Comprueba la SIM seleccionada e inténtalo de nuevo.';
+  if(/api|version|unsupported|not supported/i.test(m))return 'El USSD directo requiere Android 8.0 o posterior.';
+  return 'No se pudo completar la solicitud USSD. ' + (m||'Inténtalo de nuevo.');
+}
+function showUnavailable(code,ctx={}){
+  const hasSecret=maskPin(code)!==code;
+  openSheet(`<h3>📵 In-app USSD unavailable</h3>
+    ${riskHtml([['info','ℹ️',nativePlatform?'The native UssdPlugin is unavailable or unsupported on this Android version. Install/register the Capacitor plugin and use Android 8.0+; the dialer will never be opened.':'Direct in-app USSD requires the native Android Capacitor build with UssdPlugin; web mode will not open the dialer.']])}
+    <div class="preview" style="font-size:16px">${esc(maskPin(code))}</div>
+    ${ctx.txId?'<p class="hint">The payment stays as pending in History.</p>':''}
+    <div class="btns"><button class="btn ghost" id="uClose">Close</button>${ctx.txId?'<button class="btn bad" id="uFail">Mark failed</button>':''}${hasSecret?'':'<button class="btn pri" id="uCopy">📋 Copy code</button>'}</div>`);
+  $('#uClose').onclick=closeSheet;
+  if($('#uCopy'))$('#uCopy').onclick=()=>copy(code);
+  if(ctx.txId)$('#uFail').onclick=()=>setTxStatus(ctx.txId,'failed','');
+}
+async function dial(code,ctx={}){
+  const fn=ussdFn();
+  if(!fn){showUnavailable(code,ctx);return}
+  if(!(await ensurePerm())){
+    openSheet(`<h3>🔒 Permission needed</h3>${riskHtml([['med','⚠️','Se requiere CALL_PHONE para enviar USSD. Para detectar SIMs también se necesita READ_PHONE_STATE. Concédeselos cuando Android lo solicite o desde Ajustes → Aplicaciones.']])}
+      <div class="btns"><button class="btn ghost" id="dNo">Close</button><button class="btn pri" id="dRetry">🔄 Try again</button></div>`);
+    $('#dNo').onclick=closeSheet;$('#dRetry').onclick=()=>dial(code,ctx);return;
+  }
+  if(nativePlatform&&nativeUssd&&settings.simSlot==='ask'&&ctx.sim===undefined){await detectSims();if(!sims.length){toast('SIM list unavailable — using Android default SIM');}}
+
+  const sim=ctx.sim!==undefined?ctx.sim:await pickSim();
+  if(sim===false)return;
+  const path=ctx.path||[];
+  openSheet(`<h3>📶 ${path.length?'Continuing menu…':'Sending…'}</h3><div class="spinner"></div><div class="sending">${esc(simTitle(sim))} · waiting for your provider</div>
+    <div class="preview" style="font-size:16px">${esc(maskPin(code))}</div>`);
+  buzz(20);
+  let text;
+  try{
+    text=respText(await withTimeout(fn(code,sim&&sim.subId!=null?sim.subId:null,sim?sim.slot:null),45000));
+  }catch(e){
+    buzz([60,60,60]);
+    openSheet(`<h3>✖ USSD failed</h3>${riskHtml([['high','⛔',friendlyErr(e)]])}
+      <p class="hint">${ctx.txId?'The payment stays as pending in History.':''}</p>
+      <div class="btns"><button class="btn ghost" id="dNo">Close</button>${ctx.txId?'<button class="btn bad" id="dFail">Mark failed</button>':''}<button class="btn pri" id="dRetry">🔄 Retry</button></div>`);
+    $('#dNo').onclick=closeSheet;$('#dRetry').onclick=()=>dial(code,{...ctx,sim});
+    if(ctx.txId)$('#dFail').onclick=()=>setTxStatus(ctx.txId,'failed','');
+    return;
+  }
+  await showResponse(code,text,sim,ctx);
+}
+
+/* ---------- Reply classification & auto-confirm ---------- */
+const FAIL_RE=/(fail|unsuccessful|declined|insufficient|invalid|incorrect|error|rechaz|insuficiente|fallid|inv[aá]lid|no se pudo|denegad)/i;
+const OK_RE=/(success|successful|confirmed|completed|paid|sent|exitos|éxito|realizad|aprobad|confirmad|pagaste|has pagado|transferiste)/i;
+const PROMPT_RE=/(enter|type|input|reply with|ingres[ae]|introduc|digit[ae]|escrib|marque|seleccion|elij|choose|select)/i;
+function classifyReply(text){
+  const failed=FAIL_RE.test(text);
+  const success=!failed&&OK_RE.test(text);
+  return{failed,success};
+}
+function parseMenu(text){
+  const opts=[];
+  String(text||'').split(/\r?\n/).forEach(line=>{
+    const m=line.match(/^\s*(\d{1,3}|\*|#|00)\s*[.):\-]\s*(.+?)\s*$/)||line.match(/^\s*(\d{1,2})\s+([A-Za-zÁÉÍÓÚáéíóúñÑ].{1,60}?)\s*$/);
+    if(m&&!opts.some(o=>o.k===m[1]))opts.push({k:m[1],label:m[2]});
+  });
+  return opts.length>=1?opts:[];
+}
+function menuTitle(text){
+  return String(text||'').split(/\r?\n/).filter(l=>!/^\s*(\d{1,3}|\*|#|00)\s*[.):\-]/.test(l)&&!/^\s*\d{1,2}\s+[A-Za-zÁÉÍÓÚáéíóúñÑ]/.test(l)).join('\n').trim();
+}
+const chainCode=(code,val)=>String(code).replace(/#$/,'')+'*'+val+'#';
+const parentCode=code=>String(code).replace(/\*[^*]*#$/,'#');
+const sameAmt=(a,b)=>Math.abs((Number(a)||0)-(Number(b)||0))<0.01;
+function findMatchingPending(info){
+  if(!info||(info.amount==null&&!info.ref))return null;
+  const recent=txs.filter(t=>t.status==='pending'&&Date.now()-(t.time||t._created)<6*3600e3);
+  if(info.ref){const byRef=recent.filter(t=>t.ref&&t.ref===info.ref);if(byRef.length===1)return{tx:byRef[0],by:'reference'}}
+  if(info.amount!=null){const byAmt=recent.filter(t=>sameAmt(t.amount,info.amount));if(byAmt.length===1)return{tx:byAmt[0],by:'amount'}}
+  return null;
+}
+/* Returns {status, reason} or {skip: reason} */
+function decideAuto(tx,info,cls){
+  if(!settings.autoConfirm)return{skip:''};
+  if(!tx)return{skip:''};
+  if(tx.status!=='pending')return{skip:''};
+  if(cls.failed)return{status:'failed',reason:'The provider reported that the payment failed.'};
+  if(!cls.success)return{skip:''};
+  if(info.ref&&txs.some(t=>t._id!==tx._id&&t.ref===info.ref&&t.status==='done'))
+    return{skip:'Reference '+info.ref+' is already used by another confirmed payment — check it manually.'};
+  if(info.amount!=null){
+    if(sameAmt(info.amount,tx.amount))return{status:'done',reason:'Amount '+money(info.amount)+' matches'+(info.ref?' · Ref '+info.ref:'')+'.'};
+    return{skip:'The reply shows '+money(info.amount)+' but this payment was '+money(tx.amount)+'. Please check before confirming.'};
+  }
+  if(info.ref)return{status:'done',reason:'Success reply with reference '+info.ref+'.'};
+  return{skip:'Success reply without an amount or reference — confirm it manually.'};
+}
+
+async function showResponse(code,text,sim,ctx){
+  buzz(30);
+  text=text||'';
+  const info=parseMessage(text);
+  const cls=classifyReply(text);
+  const{failed,success}=cls;
+  const path=ctx.path||[];
+  let tx=ctx.txId?txs.find(t=>t._id===ctx.txId):null;
+  let matchedBy=tx?'this payment':'';
+  if(!tx&&settings.autoConfirm&&(success||failed)){
+    const m=findMatchingPending(info);
+    if(m){tx=m.tx;matchedBy='pending payment by '+m.by}
+  }
+  const prev=tx?{status:tx.status,ref:tx.ref||''}:null;
+  let auto=tx?decideAuto(tx,info,cls):{skip:''};
+  if(auto.status){
+    try{
+      const p={status:auto.status,autoConfirmed:true};if(info.ref)p.ref=info.ref;
+      await txCol.update(tx._id,p);
+      txs=await txCol.list({orderBy:'_created',desc:true});renderHist();renderBudget();
+      buzz(auto.status==='done'?[40,60,40]:[80,60,80]);
+    }catch(e){auto={skip:'Could not update the payment automatically.'}}
+  }
+  const txId=tx?tx._id:null;
+  const menu=parseMenu(text);
+  const interactive=!auto.status&&!success&&!failed&&(menu.length>0||PROMPT_RE.test(text)||/[:?]\s*$/.test(text.trim()));
+  const secretAsk=/(pin|clave|contrase|password|otp)/i.test(text);
+  const risks=[];
+  if(!auto.status&&!interactive){
+    if(failed)risks.push(['med','⚠️','The reply says the operation failed.']);
+    else if(success)risks.push(['low','✅','The reply looks like a successful operation.']);
+  }
+  if(auto.skip)risks.push(['med','🔎',auto.skip]);
+  if(!auto.status&&txId&&!success&&!failed&&!interactive&&settings.autoConfirm)risks.push(['med','🔎','The reply does not clearly say the payment succeeded, so it was not confirmed automatically.']);
+  if(/(pin|otp|password|contrase)/i.test(text)&&/(send|share|reply to|envia|comparte)/i.test(text)&&!PROMPT_RE.test(text))risks.push(['high','⛔','The reply asks you to share a PIN/OTP. Do not do it.']);
+  const chips=[];
+  if(info.balance!=null)chips.push(`<div class="chip"><small>Balance</small>${esc(money(info.balance))}</div>`);
+  if(info.amount!=null&&!interactive)chips.push(`<div class="chip"><small>Amount</small>${esc(money(info.amount))}</div>`);
+  if(info.ref)chips.push(`<div class="chip"><small>Reference</small>${esc(info.ref)}</div>`);
+  const badge=auto.status?`<div class="autobadge ${auto.status}"><div class="bi">${auto.status==='done'?'✓':'✕'}</div><div><b>${auto.status==='done'?'Payment auto-confirmed':'Payment auto-marked failed'}</b><small>${esc(auto.reason)}${matchedBy&&matchedBy!=='this payment'?' Matched '+esc(matchedBy)+'.':''} ${tx?esc(money(tx.amount))+(partyName(tx)?' · '+esc(partyName(tx)):''):''}</small></div></div>`:'';
+  const maskStep=s=>profile.pin&&s===profile.pin?'••••':s;
+  const crumbs=path.length?`<div class="crumbs">🧭 <span class="c">Start</span>${path.map(p=>`› <span class="c">${esc(maskStep(p))}</span>`).join('')}</div>`:'';
+  const title=interactive&&menu.length?menuTitle(text):text;
+  let menuHtml='';
+  if(interactive){
+    menuHtml=`${menu.length?`<div class="menu">${menu.map((o,i)=>`<button class="menuopt${/^(0|00|\*|#)$/.test(o.k)&&/(back|atr[aá]s|regres|volver|inicio|menu|men[uú])/i.test(o.label)?' back':''}" data-opt="${esc(o.k)}" style="animation-delay:${i*30}ms"><span class="k">${esc(o.k)}</span><span class="l">${esc(o.label)}</span><span class="ar">›</span></button>`).join('')}</div>`:''}
+      <div class="replybox"><label>${menu.length?'Or type another reply':'Your reply'}</label>
+      <div class="inrow"><input id="rsIn" class="mono" ${secretAsk?'type="password" inputmode="numeric" maxlength="12"':'inputmode="numeric" maxlength="30"'} autocomplete="off" placeholder="${secretAsk?'••••':'Type here'}">${secretAsk&&profile.pin?'<button class="btn ghost" id="rsPin">🔐 PIN</button>':''}<button class="btn pri" id="rsSend">Send</button></div></div>`;
+  }
+  let btns;
+  if(auto.status)btns=`<button class="btn ghost" id="rsCopy">📋 Copy</button><button class="btn ghost" id="rsUndo">↩️ Undo</button><button class="btn pri" id="rsClose">Done</button>`;
+  else if(interactive)btns=`<button class="btn ghost" id="rsCopy">📋 Copy</button>${path.length?'<button class="btn ghost" id="rsBack">← Back</button>':''}<button class="btn ghost" id="rsClose">End</button>`;
+  else if(txId)btns=`<button class="btn ghost" id="rsCopy">📋 Copy</button><button class="btn bad" id="rsFail">✖ Failed</button><button class="btn ok" id="rsOk">✅ Confirmed</button>`;
+  else btns=`<button class="btn ghost" id="rsCopy">📋 Copy</button><button class="btn pri" id="rsClose">Done</button>`;
+  const head=auto.status==='done'?'✅ Provider reply':interactive?(menu.length?'📋 Choose an option':'💬 Provider asks'):failed?'⚠️ Provider reply':'📩 Provider reply';
+  openSheet(`<h3>${head}</h3><div class="hint">${esc(simTitle(sim))} · ${new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div>
+    ${crumbs}${badge}
+    ${title?`<div class="resp${interactive?' title':''}">${esc(title)}</div>`:(interactive?'':'<div class="resp">(Empty reply)</div>')}
+    ${menuHtml}
+    ${chips.length?`<div class="chips">${chips.join('')}</div>`:''}${riskHtml(risks)}
+    <div class="btns">${btns}</div>
+    ${interactive?'<p class="hint">Each choice is sent in the background as a chained code — no dialer, no system pop-up.</p>':''}
+    ${txId&&!auto.status&&!interactive?`<p class="hint">${failed?'Suggested: mark as failed.':success?'Suggested: mark as confirmed.':'Check the reply, then update the payment status.'}</p>`:''}
+    ${!settings.autoConfirm&&txId&&!interactive?'<p class="hint">Tip: turn on Auto-confirm in Settings to skip this step.</p>':''}`);
+  const nextCtx=val=>({...ctx,txId:txId||ctx.txId,sim,path:[...path,val]});
+  const sendReply=val=>{val=String(val||'').replace(/[^\w]/g,'');if(!val){toast('Type a reply first');return}buzz(15);dial(chainCode(code,val),nextCtx(val))};
+  $('#rsCopy').onclick=()=>copy(text);
+  if($('#rsClose'))$('#rsClose').onclick=closeSheet;
+  if($('#rsOk'))$('#rsOk').onclick=()=>setTxStatus(txId,'done',info.ref);
+  if($('#rsFail'))$('#rsFail').onclick=()=>setTxStatus(txId,'failed',info.ref);
+  if($('#rsBack'))$('#rsBack').onclick=()=>{buzz(15);dial(parentCode(code),{...ctx,sim,path:path.slice(0,-1)})};
+  if(interactive){
+    $('#sheetBody').querySelectorAll('[data-opt]').forEach(b=>b.onclick=()=>sendReply(b.dataset.opt));
+    $('#rsSend').onclick=()=>sendReply($('#rsIn').value);
+    $('#rsIn').addEventListener('keydown',e=>{if(e.key==='Enter')sendReply($('#rsIn').value)});
+    if($('#rsPin'))$('#rsPin').onclick=()=>sendReply(profile.pin);
+  }
+  if($('#rsUndo'))$('#rsUndo').onclick=async()=>{
+    try{await txCol.update(txId,{status:prev.status,ref:prev.ref,autoConfirmed:false});txs=await txCol.list({orderBy:'_created',desc:true});renderHist();renderBudget();closeSheet();toast('Reverted to pending')}
+    catch(e){toast('Could not undo')}
+  };
+  if(auto.status)toast(auto.status==='done'?'✅ Payment auto-confirmed':'✖ Payment marked failed');
+}
+async function setTxStatus(id,status,ref){
+  try{const p={status,autoConfirmed:false};if(ref)p.ref=ref;await txCol.update(id,p);txs=await txCol.list({orderBy:'_created',desc:true});renderHist();renderBudget();closeSheet();toast(status==='done'?'Payment confirmed':'Marked as failed')}
+  catch(e){toast('Could not update payment')}
+}
+function renderUssd(){
+  const fn=ussdFn();
+  $('#setAuto').checked=!!settings.autoConfirm;
+  $('#simTag').textContent=fn?'📶 '+((nativePlatform&&nativeUssd&&settings.simSlot==='auto')?'Direct · default SIM':settings.simSlot==='auto'?'Direct':settings.simSlot==='ask'?'Ask SIM':'SIM '+(Number(settings.simSlot.slice(3))+1)):'📵 No USSD';
+  $('#simTag').classList.toggle('on',!!fn);
+  $('#simTag').classList.toggle('off',!fn);
+  $('#ussdStatus').innerHTML=fn?riskHtml([['low','✅',nativePlatform&&nativeUssd?'Native UssdPlugin is available. USSD replies are handled in-app; available SIM subscriptions can be selected below.':'In-app USSD is supported on this device. Everything happens inside this app.']]):riskHtml([['med','📵',nativePlatform?'Native UssdPlugin is unavailable or unsupported on this Android version. The dialer is never used as a fallback.':'In-app USSD is unavailable in this web version; native USSD remains available in a Capacitor build.']]);
+  const opts=[['auto',nativePlatform&&nativeUssd?'Default SIM':'Default SIM'],['ask','Ask each time'],...simList().map(s=>['sim'+s.slot,'SIM '+(s.slot+1)+(sims.length&&s.label!=='SIM '+(s.slot+1)?' · '+s.label:'')])];
+  $('#simSeg').innerHTML=opts.map(([v,l])=>`<button data-sim="${v}" class="${settings.simSlot===v?'on':''}">${esc(l)}</button>`).join('');
+  $('#simMsg').textContent=sims.length?sims.length+' SIM'+(sims.length>1?'s':'')+' detected.':(nativePlatform&&nativeUssd?'SIM list unavailable — Android default SIM will be used.':'SIM list not available — choosing SIM 1/SIM 2 uses the slot order.');
+  $('#simMsg').className='hint'+(sims.length?' good':'');
+}
+$('#simSeg').onclick=e=>{const b=e.target.closest('[data-sim]');if(!b)return;settings.simSlot=b.dataset.sim;DB.set('settings',settings);renderUssd();buzz(15)};
+$('#setAuto').addEventListener('change',e=>{settings.autoConfirm=e.target.checked;DB.set('settings',settings);toast(settings.autoConfirm?'Auto-confirm on':'Auto-confirm off — you will confirm manually')});
+$('#permBtn').onclick=async()=>{
+  const A=window.Acornix||{};
+  if(nativePlatform&&nativeUssd){toast((await ensurePerm())?'Phone permission granted':'Permission denied — enable it in Android settings');return}
+  if(typeof(A.requestPermission||A.requestPermissions)!=='function'){toast('Android will ask for phone permission the first time a code is sent');return}
+  toast((await ensurePerm())?'Phone permission granted':'Permission denied — enable it in Android settings');
+};
+$('#simRefresh').onclick=async()=>{await detectSims();renderUssd();toast(sims.length?sims.length+' SIM(s) found':'Could not read SIM list')};
+
+/* ---------- Budget ---------- */
+function monthTx(){const d=new Date();const st=new Date(d.getFullYear(),d.getMonth(),1).getTime();return txs.filter(t=>(t.time||t._created)>=st)}
+function spentMonth(){return monthTx().filter(t=>t.status==='done').reduce((a,t)=>a+(Number(t.amount)||0),0)}
+function renderBudget(){
+  const sp=spentMonth(),b=Number(settings.budget)||0;
+  $('#bSpent').textContent=money(sp);
+  const left=b-sp;
+  $('#bLeft').textContent=b?(left>=0?money(left)+' left':money(-left)+' over'):'No budget set';
+  const pct=b?Math.min(100,sp/b*100):0;
+  const bar=$('#bBar');bar.style.width=pct+'%';
+  bar.style.background=pct>90?'linear-gradient(90deg,#f59e0b,#ef4444)':pct>70?'linear-gradient(90deg,#22c55e,#f59e0b)':'';
+}
+
+/* ---------- Shop card ---------- */
+function renderShop(){
+  const el=$('#shopCard');
+  el.innerHTML=`<div class="card shop" id="shopOpen">
+    <div class="top"><div class="ic">🛒</div><div class="t"><b>Shop — Pay a merchant</b><small>${merchants.length?'Pick a favorite or enter a new merchant code':'Enter a merchant code and save it as a favorite'}</small></div><div class="go">›</div></div>
+    ${merchants.length?`<div class="chips">${merchants.slice(0,8).map(m=>`<button class="chip fav" data-shopv="${esc(m.code)}">🏪 ${esc(m.name)}</button>`).join('')}<button class="chip fav new" data-shopnew="1">➕ Other</button></div>`:''}
+  </div>`;
+}
+$('#shopCard').addEventListener('click',e=>{
+  const f=e.target.closest('[data-shopv]');
+  if(f){e.stopPropagation();buzz(15);openRun(shopCode(),{mer:f.dataset.shopv});return}
+  const n=e.target.closest('[data-shopnew]');
+  if(n){e.stopPropagation();openRun(shopCode(),{newMer:true});return}
+  if(e.target.closest('#shopOpen'))openRun(shopCode());
+});
+
+/* ---------- Codes ---------- */
+const placeholders=t=>[...new Set((t.match(/\{(\w+)\}/g)||[]).map(x=>x.slice(1,-1)))];
+function codeDesc(c){
+  const ph=placeholders(c.template).filter(p=>!((p==='dni'&&profile.dni)||(p==='pin'&&profile.pin)));
+  if(!ph.length)return placeholders(c.template).includes('pin')?'One tap — PIN auto-filled':'One tap — runs in-app';
+  return 'Asks for: '+ph.map(p=>isMerField(p)?p+' (favorites)':p).join(', ');
+}
+function renderCodes(){
+  const el=$('#codeList');
+  if(!codes.length){el.innerHTML='<div class="empty"><div>📟</div>No services yet. Tap + to add your bank or mobile money codes.</div>';return}
+  el.innerHTML=codes.map(c=>`<div class="card code" data-id="${c._id}">
+    <div class="ic" style="background:${esc(c.color)}33;color:${esc(c.color)}">${esc(c.icon)}</div>
+    <div class="t"><b>${esc(c.name)}</b><small>${esc(codeDesc(c))}</small></div>
+    <button class="ed" data-edit="${c._id}" aria-label="Edit">✎</button></div>`).join('');
+}
+$('#codeList').addEventListener('click',e=>{
+  const ed=e.target.closest('[data-edit]');
+  if(ed){e.stopPropagation();openCodeEditor(codes.find(c=>c._id===ed.dataset.edit));return}
+  const card=e.target.closest('.code');if(card)openRun(codes.find(c=>c._id===card.dataset.id));
+});
+
+/* ---------- Sheet ---------- */
+function openSheet(html){$('#sheetBody').innerHTML=html;$('#sheet').classList.add('on');$('#sheetBg').classList.add('on');$('#sheet').scrollTop=0}
+function closeSheet(){$('#sheet').classList.remove('on');$('#sheetBg').classList.remove('on')}
+$('#sheetBg').onclick=closeSheet;
+function confirmBox(msg,okText,fn){
+  openSheet(`<h3>Are you sure?</h3><p style="color:var(--mut)">${esc(msg)}</p><div class="btns"><button class="btn ghost" id="cNo">Cancel</button><button class="btn bad" id="cYes">${esc(okText)}</button></div>`);
+  $('#cNo').onclick=closeSheet;$('#cYes').onclick=async()=>{closeSheet();await fn()};
+}
+
+/* ---------- Code editor ---------- */
+function openCodeEditor(c){
+  const isNew=!c;c=c||{name:'',template:'',icon:'🛒',color:'#7c5cff'};
+  let icon=c.icon,color=c.color;
+  openSheet(`<h3>${isNew?'Add service':'Edit service'}</h3>
+    <label>Name</label><input id="eName" value="${esc(c.name)}" placeholder="e.g. Pay at SuperMart">
+    <label>USSD template</label><input id="eTpl" class="mono" value="${esc(c.template)}" placeholder="*182*8*1*{merchant}*{amount}#">
+    <p class="hint">Placeholders: {amount}, {merchant}, {agent}, {phone}, {ref} or any {name}. Use {dni} and {pin} to auto-fill them from your profile. Wallet balance: ${esc(BALANCE_TPL)}. A short code like *555# opens the provider menu inside the app. The template is only shown here — never while paying.</p>
+    <label>Icon</label><div class="colors" id="eIcons">${ICONS.map(i=>`<button style="background:var(--card2)" data-i="${i}" class="${i===icon?'on':''}">${i}</button>`).join('')}</div>
+    <label>Color</label><div class="colors" id="eColors">${COLORS.map(x=>`<button style="background:${x}" data-c="${x}" class="${x===color?'on':''}"></button>`).join('')}</div>
+    <div id="eErr"></div>
+    <div class="btns">${isNew?'':'<button class="btn bad" id="eDel">Delete</button>'}<button class="btn pri" id="eSave">Save</button></div>`);
+  $('#eIcons').onclick=e=>{const b=e.target.closest('button');if(!b)return;icon=b.dataset.i;[...$('#eIcons').children].forEach(x=>x.classList.toggle('on',x===b))};
+  $('#eColors').onclick=e=>{const b=e.target.closest('button');if(!b)return;color=b.dataset.c;[...$('#eColors').children].forEach(x=>x.classList.toggle('on',x===b))};
+  $('#eSave').onclick=async()=>{
+    const name=$('#eName').value.trim(),tpl=$('#eTpl').value.trim().replace(/\s+/g,'');
+    if(!name||!tpl){$('#eErr').innerHTML='<div class="risk med">⚠️ Name and template are required.</div>';return}
+    if(!/^[*#0-9{}\w]+$/.test(tpl)||!/[*#]/.test(tpl)){$('#eErr').innerHTML='<div class="risk med">⚠️ A USSD code uses digits, * and #, e.g. *123#.</div>';return}
+    if(placeholders(tpl).some(p=>/password|otp/i.test(p))){$('#eErr').innerHTML='<div class="risk high">⛔ Never store a password or OTP placeholder. Type it when the provider asks for it on the in-app reply screen.</div>';return}
+    if(isNew)await codesCol.add({name,template:tpl,icon,color,order:Date.now()});
+    else await codesCol.update(c._id,{name,template:tpl,icon,color});
+    codes=await codesCol.list({orderBy:'order'});renderCodes();closeSheet();toast('Saved');
+  };
+  if(!isNew)$('#eDel').onclick=()=>confirmBox('Delete "'+c.name+'"?','Delete',async()=>{await codesCol.remove(c._id);codes=await codesCol.list({orderBy:'order'});renderCodes();toast('Deleted')});
+}
+
+/* ---------- Risk analysis ---------- */
+function analyzeCode(code,amount){
+  const r=[];const c=code.replace(/\s/g,'');
+  if(/^(\*\*|\*)?(21|61|62|67|002|004)\*/.test(c))r.push(['high','⛔','Call forwarding code! Scammers use this to redirect your calls and steal OTPs / account access. Do not send unless you set it up yourself.']);
+  if(/^##(002|004|21|61|62|67)#$/.test(c))r.push(['info','ℹ️','This cancels call forwarding. Safe to send.']);
+  if(/^\*#06#$/.test(c))r.push(['info','ℹ️','Shows your IMEI. Never share it with strangers.']);
+  if(/^\*#\*#/.test(c))r.push(['med','⚠️','Hidden device/service menu code. Not a payment code.']);
+  if(!/#$/.test(c))r.push(['med','⚠️','USSD codes normally end with #. Check for a typo.']);
+  if(/\{\w+\}/.test(c))r.push(['med','⚠️','Some fields are still empty.']);
+  const parts=c.replace(/#$/,'').split('*').filter(Boolean);
+  if(parts.some(p=>/^\d{10,15}$/.test(p)&&p!==profile.dni))r.push(['med','📞','Contains a phone/account number. Double-check the recipient before paying.']);
+  const last=parts[parts.length-1];
+  if(parts.length>2&&last&&/^\d{4,6}$/.test(last)&&amount!=null&&String(amount)!==last&&last!==profile.pin)r.push(['med','🔐','The last step looks like a PIN. Never type your PIN into a code someone sent you.']);
+  const mer=parts.find(p=>merchants.some(m=>m.code===p));
+  if(mer){const m=merchants.find(x=>x.code===mer);r.push(['info','⭐','Paying your favorite merchant '+m.name+'.'])}
+  if(amount!=null&&amount!==''){const a=Number(amount);
+    if(a<=0||isNaN(a))r.push(['med','⚠️','Amount is not valid.']);
+    else{
+      if(settings.large&&a>Number(settings.large))r.push(['med','💰','Large amount: '+money(a)+' is above your alert limit of '+money(settings.large)+'.']);
+      const left=(Number(settings.budget)||0)-spentMonth();
+      if(settings.budget&&a>left)r.push(['med','📊','This exceeds your remaining monthly budget ('+money(Math.max(0,left))+').']);
+    }}
+  const tpls=[...codes.map(k=>k.template),shopTpl()];
+  const known=tpls.some(t=>{try{const re=new RegExp('^'+t.replace(/[*#]/g,m=>'\\'+m).replace(/\\?\{\w+\}/g,'[^*#]+')+'$');return re.test(c)}catch(e){return false}});
+  if(!known&&!r.some(x=>x[0]==='high'))r.push(['info','🆕','This code does not match any of your saved services. Make sure it comes from your bank or provider.']);
+  if(!r.some(x=>x[0]==='high'||x[0]==='med'))r.unshift(['low','✅','No risks detected. Looks safe to send.']);
+  return{risks:r,parts};
+}
+const riskHtml=list=>list.map(([l,i,t])=>`<div class="risk ${l}"><span>${i}</span><span>${esc(t)}</span></div>`).join('');
+
+/* ---------- Run code ---------- */
+const fieldWord=p=>/agent/i.test(p)?'agent':/till/i.test(p)?'till':'merchant';
+function runField(p){
+  const lbl=esc(p.charAt(0).toUpperCase()+p.slice(1));
+  if(p==='dni'&&profile.dni)return `<div class="risk info"><span>🪪</span><span>DNI auto-filled from your profile (•••••••••${esc(profile.dni.slice(-4))})</span></div>`;
+  if(p==='pin'&&profile.pin)return `<div class="risk info"><span>🔐</span><span>PIN auto-filled from your profile (••••)</span></div>`;
+  if(p==='dni')return `<label>DNI</label><input data-ph="dni" class="mono" inputmode="numeric" maxlength="13" autocomplete="off" placeholder="13 digits"><p class="hint">Tip: save it in Settings → Profile to auto-fill.</p>`;
+  if(p==='pin')return `<label>PIN</label><input data-ph="pin" class="mono" type="password" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="••••"><p class="hint">Tip: save it in Settings → Profile to auto-fill.</p>`;
+  if(isMerField(p)){
+    const w=fieldWord(p);
+    return `<label>Choose ${w}</label>
+      <div class="chips merPick" data-for="${esc(p)}" style="margin-top:0"></div>
+      <div class="merNew" data-for="${esc(p)}">
+        <input data-ph="${esc(p)}" class="mono" inputmode="numeric" maxlength="20" autocomplete="off" placeholder="Enter ${w} code">
+        <div class="hint favInfo"></div>
+        <div class="favAdd" hidden><div class="inrow"><input class="favName" placeholder="Name, e.g. Doña Ray" maxlength="40"><button class="btn pri favSave">⭐ Save</button></div></div>
+      </div>`;
+  }
+  const num=/amount|phone|number|code/i.test(p)?'inputmode="numeric"':'';
+  return `<label>${lbl}</label><input data-ph="${esc(p)}" ${num} placeholder="Enter ${esc(p)}">`;
+}
+function openRun(c,opts={}){
+  const ph=placeholders(c.template);
+  const ordered=[...ph.filter(isMerField),...ph.filter(p=>!isMerField(p))];
+  const isPayment=ph.includes('amount')||ph.some(isMerField);
+  const viaTxt=directOn()?((nativePlatform&&nativeUssd?'Sent in-app · '+(settings.simSlot==='ask'?'you will pick the SIM':settings.simSlot==='auto'?'default SIM':'SIM '+(Number(settings.simSlot.slice(3))+1)):settings.simSlot==='ask'?'Sent in-app · you will pick the SIM':'Sent in-app · '+(settings.simSlot==='auto'?'default SIM':'SIM '+(Number(settings.simSlot.slice(3))+1)))+(isPayment&&settings.autoConfirm?' · auto-confirms from reply':'')):'In-app USSD is not available on this version of Acornix';
+  openSheet(`<h3>${esc(c.icon)} ${esc(c.name)}</h3>
+    ${ordered.map(runField).join('')}
+    ${isPayment?'<label>Note (optional, e.g. items)</label><input id="rNote" placeholder="Groceries">':''}
+    <div class="sumbox" id="rPrev"></div><div id="rRisk"></div>
+    <p class="hint">📶 ${esc(viaTxt)}</p>
+    <div class="btns"><button class="btn ghost" id="rCancel">Cancel</button><button class="btn pri" id="rDial">📶 ${ph.some(isMerField)?'Pay':'Send'}</button></div>`);
+  const body=$('#sheetBody');
+  const inp=p=>body.querySelector(`[data-ph="${p}"]`);
+  const merKeys=ph.filter(isMerField);
+  const merKey=merKeys[0];
+  const pickState={};
+
+  const build=()=>{
+    let s=c.template,l=c.template;const v={};
+    ph.forEach(p=>{
+      let val='';
+      if(p==='dni'&&profile.dni)val=profile.dni;
+      else if(p==='pin'&&profile.pin)val=profile.pin;
+      else{const i=inp(p);val=i?clean(i.value):''}
+      v[p]=val;
+      if(val){const k='{'+p+'}';s=s.split(k).join(val);if(p!=='pin')l=l.split(k).join(val)}
+    });
+    return{s,v,l};
+  };
+  const summary=v=>{
+    if(!ph.length)return '<div class="empty-sum">Opens '+esc(c.name)+' inside the app</div>';
+    return '<div class="chips">'+ordered.map(p=>{
+      const val=v[p];let shown;
+      if(!val)shown='<span style="color:var(--warn)">—</span>';
+      else if(p==='pin')shown='••••';
+      else if(p==='dni')shown='•••'+esc(val.slice(-4));
+      else if(isMerField(p)){const f=merchants.find(m=>m.code===val);shown=f?'⭐ '+esc(f.name):esc(val)}
+      else if(p==='amount')shown=esc(money(val));
+      else shown=esc(val);
+      const lab=isMerField(p)?fieldWord(p):p;
+      return `<div class="chip plain"><small>${esc(lab.charAt(0).toUpperCase()+lab.slice(1))}</small>${shown}</div>`;
+    }).join('')+'</div>';
+  };
+  const upd=()=>{
+    const{s,v}=build();$('#rPrev').innerHTML=summary(v);
+    const a=ph.includes('amount')?(v.amount||null):null;
+    $('#rRisk').innerHTML=riskHtml(analyzeCode(s,a).risks);
+  };
+  const updFav=p=>{
+    const nw=body.querySelector(`.merNew[data-for="${p}"]`);if(!nw)return;
+    const code=clean(inp(p).value);const ex=merchants.find(m=>m.code===code);
+    const info=nw.querySelector('.favInfo');const add=nw.querySelector('.favAdd');
+    if(!code){info.textContent='';info.className='hint favInfo';add.hidden=true}
+    else if(ex){info.textContent='⭐ Already in your favorites as "'+ex.name+'"';info.className='hint favInfo good';add.hidden=true}
+    else{info.textContent='New '+fieldWord(p)+'. Save it as a favorite to pick it by name next time.';info.className='hint favInfo';add.hidden=false}
+  };
+  const renderPick=p=>{
+    const box=body.querySelector(`.merPick[data-for="${p}"]`);const nw=body.querySelector(`.merNew[data-for="${p}"]`);
+    if(!box||!nw)return;
+    if(!merchants.length){box.innerHTML='';box.hidden=true;nw.hidden=false;pickState[p]='new';return}
+    box.hidden=false;
+    const cur=clean(inp(p).value);const mode=pickState[p];
+    box.innerHTML=merchants.map(m=>`<button class="chip fav ${mode==='fav'&&cur===m.code?'on':''}" data-v="${esc(m.code)}">🏪 ${esc(m.name)}</button>`).join('')+
+      `<button class="chip fav new ${mode==='new'?'on':''}" data-new="1">➕ Other ${fieldWord(p)}</button>`;
+    nw.hidden=mode!=='new';
+  };
+
+  merKeys.forEach(p=>{
+    const box=body.querySelector(`.merPick[data-for="${p}"]`);
+    const nw=body.querySelector(`.merNew[data-for="${p}"]`);
+    box.addEventListener('click',e=>{
+      const f=e.target.closest('[data-v]');
+      if(f){inp(p).value=f.dataset.v;pickState[p]='fav';renderPick(p);updFav(p);upd();buzz(15);return}
+      if(e.target.closest('[data-new]')){inp(p).value='';pickState[p]='new';renderPick(p);updFav(p);upd();setTimeout(()=>inp(p).focus(),50)}
+    });
+    inp(p).addEventListener('input',()=>{const i=inp(p);const cv=i.value.replace(/[^\w]/g,'');if(cv!==i.value)i.value=cv;updFav(p)});
+    nw.querySelector('.favSave').onclick=async()=>{
+      const code=clean(inp(p).value);const name=nw.querySelector('.favName').value.trim();
+      if(!code){toast('Enter a code first');return}
+      if(!name){toast('Enter a name');nw.querySelector('.favName').focus();return}
+      if(await addMerchant(name,code)){nw.querySelector('.favName').value='';pickState[p]='fav';renderPick(p);updFav(p);upd()}
+    };
+    if(opts.mer&&p===merKey){inp(p).value=opts.mer;pickState[p]='fav'}
+    else if(opts.newMer&&p===merKey){pickState[p]='new'}
+    renderPick(p);updFav(p);
+  });
+
+  body.querySelectorAll('[data-ph]').forEach(i=>i.addEventListener('input',upd));
+  upd();
+  const visible=[...body.querySelectorAll('[data-ph]')].filter(i=>!i.closest('[hidden]'));
+  const focusEl=(merKey&&merchants.length&&!opts.mer&&!opts.newMer)?null:(opts.mer?visible.find(i=>!isMerField(i.dataset.ph)):visible[0]);
+  if(focusEl)setTimeout(()=>focusEl.focus(),300);
+  $('#rCancel').onclick=closeSheet;
+  $('#rDial').onclick=async()=>{
+    const{s,v,l}=build();
+    if(merKey&&!v[merKey]){toast('Choose a '+fieldWord(merKey)+' first');return}
+    if(/\{\w+\}/.test(s)){toast('Fill in all fields first');return}
+    if(ph.includes('dni')&&!/^\d{13}$/.test(v.dni||'')){toast('DNI must have 13 digits');return}
+    if(ph.includes('pin')&&String(v.pin||'').length!==4){toast('PIN must have 4 characters');return}
+    const{risks}=analyzeCode(s,v.amount||null);
+    const note=$('#rNote')?$('#rNote').value.trim():'';
+    const pv=merKey?v[merKey]:(v.phone||'');
+    const fav=merchants.find(x=>x.code===pv);
+    const party=fav?fav.name:pv;
+    const go=async()=>{
+      if(!ussdFn()){showUnavailable(s);return}
+      let txId=null;
+      if(ph.includes('amount')||party){
+        try{
+          const d=await txCol.add({name:c.name,code:l,amount:Number(v.amount)||0,party,note:note||(fav?fav.name:''),status:'pending',time:Date.now()});
+          txId=d&&d._id;
+          txs=await txCol.list({orderBy:'_created',desc:true});renderHist();renderBudget();
+        }catch(e){toast('Could not log payment')}
+      }
+      dial(s,{txId});
+    };
+    if(risks.some(x=>x[0]==='high')){openSheet(`<h3>⛔ High risk code</h3>${riskHtml(risks.filter(x=>x[0]==='high'))}<div class="btns"><button class="btn ghost" id="hNo">Cancel</button><button class="btn bad" id="hYes">Send anyway</button></div>`);$('#hNo').onclick=closeSheet;$('#hYes').onclick=go}
+    else go();
+  };
+}
+async function copy(t){try{await navigator.clipboard.writeText(t);toast('Copied')}catch(e){try{if(window.Acornix&&Acornix.copy){await Acornix.copy(t);toast('Copied');return}}catch(_){}const x=document.createElement('textarea');x.value=t;document.body.appendChild(x);x.select();try{document.execCommand('copy');toast('Copied')}catch(_){toast('Copy failed')}x.remove()}}
+
+/* ---------- Check tab ---------- */
+$('#chkPaste').onclick=async()=>{try{const t=await navigator.clipboard.readText();$('#chkIn').value=t;runCheck()}catch(e){toast('Long-press the box to paste')}};
+$('#chkGo').onclick=runCheck;
+function maskPin(s){return profile.pin?String(s).split('*').map(p=>p.replace(/#$/,'')===profile.pin?p.replace(profile.pin,'••••'):p).join('*'):s}
+function runCheck(){
+  const raw=$('#chkIn').value.trim();const out=$('#chkOut');
+  if(!raw){out.innerHTML='';toast('Paste something first');return}
+  const compact=raw.replace(/\s/g,'');
+  if(/^[*#][*#0-9]*#?$/.test(compact)&&compact.length<=60){
+    const{risks,parts}=analyzeCode(compact,null);
+    out.innerHTML=`<div class="card"><b>USSD code detected</b><div class="preview">${esc(maskPin(compact))}</div>
+      <div class="chips">${parts.map((p,i)=>{const fav=merchants.find(m=>m.code===p);const shown=profile.pin&&p===profile.pin?'••••':p;return`<div class="chip"><small>${i===0?'Service':fav?'⭐ '+esc(fav.name):p===profile.dni?'Your DNI':profile.pin&&p===profile.pin?'Your PIN':'Step '+i}</small>${esc(shown)}</div>`}).join('')}</div>
+      ${riskHtml(risks)}
+      <div class="btns"><button class="btn ghost" id="kCopy">📋 Copy</button><button class="btn ghost" id="kSave">⭐ Save</button><button class="btn pri" id="kDial">📶 Send</button></div></div>`;
+    $('#kCopy').onclick=()=>copy(compact);
+    $('#kSave').onclick=()=>{openCodeEditor(null);setTimeout(()=>{$('#eTpl').value=compact},50)};
+    $('#kDial').onclick=()=>{if(risks.some(x=>x[0]==='high')){openSheet(`<h3>⛔ High risk code</h3>${riskHtml(risks.filter(x=>x[0]==='high'))}<div class="btns"><button class="btn ghost" id="hNo">Cancel</button><button class="btn bad" id="hYes">Send anyway</button></div>`);$('#hNo').onclick=closeSheet;$('#hYes').onclick=()=>dial(compact)}else dial(compact)};
+    return;
+  }
+  const info=parseMessage(raw);
+  const warn=[];
+  if(/(pin|otp|password)/i.test(raw)&&/(send|share|reply|give)/i.test(raw))warn.push(['high','⛔','This message asks you to share a PIN/OTP. Legit providers never ask for that. Likely a scam.']);
+  if(/(reversed|wrong(ly)? sent|mistakenly|send (it )?back|refund me)/i.test(raw))warn.push(['high','⛔','"Sent by mistake, please return" is a common scam. Check your real balance first with your provider.']);
+  if(/(failed|unsuccessful|declined|insufficient)/i.test(raw))warn.push(['med','⚠️','The message says the transaction failed.']);
+  if(/(success|successful|confirmed|you have paid|you have sent|completed|received)/i.test(raw)&&!warn.length)warn.push(['low','✅','Looks like a successful payment confirmation.']);
+  const status=/(failed|unsuccessful|declined|insufficient)/i.test(raw)?'failed':'done';
+  out.innerHTML=`<div class="card"><b>Message details</b>
+    <div class="chips">
+      <div class="chip"><small>Amount</small>${info.amount!=null?esc(money(info.amount)):'—'}</div>
+      <div class="chip"><small>To / From</small>${esc(info.party||'—')}</div>
+      <div class="chip"><small>Reference</small>${esc(info.ref||'—')}</div>
+      <div class="chip"><small>Balance</small>${info.balance!=null?esc(money(info.balance)):'—'}</div>
+    </div>${riskHtml(warn)}
+    ${info.amount!=null?`<label>Note</label><input id="mNote" value="${esc(info.party||'')}" placeholder="What did you buy?">
+    <div class="btns"><button class="btn ${status==='failed'?'bad':'ok'}" id="mLog">🧾 Log as ${status==='failed'?'failed':'confirmed'} payment</button></div>`:'<p class="hint">No amount found. Paste a code like *123# or a full confirmation SMS.</p>'}</div>`;
+  if(info.amount!=null)$('#mLog').onclick=async()=>{
+    const pend=txs.find(t=>t.status==='pending'&&Math.abs((Number(t.amount)||0)-info.amount)<0.01);
+    if(pend){await txCol.update(pend._id,{status,ref:info.ref||pend.ref||'',note:$('#mNote').value.trim()||pend.note});toast('Matched & updated a pending payment')}
+    else{await txCol.add({name:'From message',code:'',amount:info.amount,party:info.party||'',ref:info.ref||'',note:$('#mNote').value.trim(),status,time:Date.now()});toast('Payment logged')}
+    txs=await txCol.list({orderBy:'_created',desc:true});renderHist();renderBudget();
+  };
+}
+function parseMessage(t){
+  const num=s=>Number(String(s).replace(/,/g,''));
+  const cur='(?:[A-Z]{3}|Ksh|KES|NGN|GHS|UGX|TZS|RWF|ZMW|USD|EUR|HNL|Lps|L|R|\\$|€|£|₦|₵)';
+  let amount=null,balance=null;
+  const bal=t.match(new RegExp('(?:balance|saldo)[^0-9]{0,25}?'+cur+'?\\s?([\\d,]+(?:\\.\\d{1,2})?)','i'));if(bal)balance=num(bal[1]);
+  const re=new RegExp(cur+'\\.?\\s?([\\d,]+(?:\\.\\d{1,2})?)|([\\d,]+(?:\\.\\d{1,2})?)\\s?'+cur,'g');let m;
+  while((m=re.exec(t))){const v=num(m[1]||m[2]);if(!isNaN(v)&&v!==balance){amount=v;break}}
+  if(amount==null){const a=t.match(/(?:paid|sent|amount|purchase of|payment of|withdrawn|withdrawal of|monto|pago de|pagaste)\D{0,10}([\d,]+(?:\.\d{1,2})?)/i);if(a)amount=num(a[1])}
+  const ref=(t.match(/(?:ref(?:erence|erencia)?|txn ?id|transaction ?id|trx ?id|transacci[oó]n|id)[\s:.#-]*([A-Z0-9]{6,})/i)||t.match(/\b([A-Z0-9]{8,12})\b(?=\s*confirmed)/i)||[])[1]||'';
+  let party=((t.match(/\bto\s+([A-Z][\w&.' -]{1,30}?)(?=\s+(?:on|at|for|ref|\d)|[.,]|$)/)||t.match(/\bfrom\s+([A-Z][\w&.' -]{1,30}?)(?=\s+(?:on|at|for|ref|\d)|[.,]|$)/)||[])[1]||'').trim();
+  if(!party){const fav=merchants.find(mm=>new RegExp('\\b'+mm.code+'\\b').test(t));if(fav)party=fav.name}
+  return{amount,balance,ref,party};
+}
+
+/* ---------- History ---------- */
+$('#histSeg').onclick=e=>{const b=e.target.closest('button');if(!b)return;histFilter=b.dataset.f;[...$('#histSeg').children].forEach(x=>x.classList.toggle('on',x===b));renderHist()};
+const ST={pending:['#f59e0b','Pending'],done:['#22c55e','Confirmed'],failed:['#ef4444','Failed']};
+function partyName(t){
+  const p=String(t.party||'');
+  const m=p.match(/^(.*) \((\w+)\)$/);if(m)return m[1];
+  const f=merchants.find(x=>x.code===p);return f?f.name:p;
+}
+function renderHist(){
+  const m=monthTx();
+  $('#sDone').textContent=money(m.filter(t=>t.status==='done').reduce((a,t)=>a+(+t.amount||0),0));
+  $('#sPend').textContent=m.filter(t=>t.status==='pending').length;
+  $('#sFail').textContent=m.filter(t=>t.status==='failed').length;
+  const list=txs.filter(t=>histFilter==='all'||t.status===histFilter);
+  const el=$('#txList');
+  if(!list.length){el.innerHTML='<div class="empty"><div>🧾</div>No transactions here yet.</div>';return}
+  el.innerHTML=list.map(t=>{const s=ST[t.status]||ST.pending;const d=new Date(t.time||t._created);
+    return`<div class="card tx" data-id="${t._id}"><div class="dot" style="background:${s[0]}"></div>
+    <div class="t"><b>${esc(t.note||partyName(t)||t.name)}</b><small>${esc(t.name)} · ${d.toLocaleDateString()} ${d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</small></div>
+    <div class="amt">${esc(money(t.amount))}<small style="color:${s[0]}">${t.autoConfirmed&&t.status!=='pending'?'🤖 ':''}${s[1]}</small></div></div>`}).join('');
+}
+$('#txList').onclick=e=>{const c=e.target.closest('.tx');if(!c)return;const t=txs.find(x=>x._id===c.dataset.id);if(t)openTx(t)};
+function openTx(t){
+  const pn=partyName(t);
+  openSheet(`<h3>${esc(money(t.amount))}</h3><div class="hint">${esc(t.name)} · ${new Date(t.time||t._created).toLocaleString()}</div>
+    ${pn?`<div class="hint">To: ${esc(pn)}</div>`:''}
+    ${t.autoConfirmed&&t.status!=='pending'?`<div class="hint good">🤖 Status set automatically from the provider reply</div>`:''}
+    <label>Status</label><div class="status-btns">
+      <button class="btn ${t.status==='pending'?'pri':'ghost'}" data-s="pending">⏳ Pending</button>
+      <button class="btn ${t.status==='done'?'ok':'ghost'}" data-s="done">✅ Done</button>
+      <button class="btn ${t.status==='failed'?'bad':'ghost'}" data-s="failed">✖ Failed</button></div>
+    <label>Amount</label><input id="tAmt" type="number" inputmode="decimal" value="${esc(t.amount)}">
+    <label>Note</label><input id="tNote" value="${esc(t.note||'')}" placeholder="What did you buy?">
+    <label>Reference</label><input id="tRef" class="mono" value="${esc(t.ref||'')}" placeholder="Transaction ID from SMS">
+    <div class="btns"><button class="btn bad" id="tDel">Delete</button>${t.code?'<button class="btn ghost" id="tRe">🔁 Pay again</button>':''}<button class="btn pri" id="tSave">Save</button></div>`);
+  let st=t.status;
+  document.querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>{st=b.dataset.s;document.querySelectorAll('[data-s]').forEach(x=>{x.className='btn '+(x===b?(st==='done'?'ok':st==='failed'?'bad':'pri'):'ghost')})});
+  $('#tSave').onclick=async()=>{const p={status:st,amount:Number($('#tAmt').value)||0,note:$('#tNote').value.trim(),ref:$('#tRef').value.trim()};if(st!==t.status)p.autoConfirmed=false;await txCol.update(t._id,p);txs=await txCol.list({orderBy:'_created',desc:true});renderHist();renderBudget();closeSheet();toast('Saved')};
+  $('#tDel').onclick=()=>confirmBox('Delete this transaction?','Delete',async()=>{await txCol.remove(t._id);txs=await txCol.list({orderBy:'_created',desc:true});renderHist();renderBudget();toast('Deleted')});
+  if(t.code)$('#tRe').onclick=()=>payAgain(t);
+}
+function payAgain(t){
+  let code=t.code;
+  if(/\{pin\}/.test(code)&&!profile.pin){toast('Save your PIN in Settings → Profile to pay again');return}
+  if(/\{dni\}/.test(code)&&!profile.dni){toast('Save your DNI in Settings → Profile to pay again');return}
+  code=code.split('{pin}').join(profile.pin).split('{dni}').join(profile.dni);
+  const{risks}=analyzeCode(code,t.amount||null);
+  const pn=partyName(t);
+  const high=risks.some(x=>x[0]==='high');
+  openSheet(`<h3>🔁 Pay again</h3>
+    <div class="sumbox"><div class="chips">
+      <div class="chip plain"><small>Service</small>${esc(t.name)}</div>
+      ${pn?`<div class="chip plain"><small>To</small>${esc(pn)}</div>`:''}
+      <div class="chip plain"><small>Amount</small>${esc(money(t.amount))}</div>
+    </div></div>${riskHtml(risks)}
+    <div class="btns"><button class="btn ghost" id="pNo">Cancel</button><button class="btn ${high?'bad':'pri'}" id="pYes">📶 ${high?'Send anyway':'Pay'}</button></div>`);
+  $('#pNo').onclick=closeSheet;
+  $('#pYes').onclick=async()=>{
+    if(!ussdFn()){showUnavailable(code);return}
+    let txId=null;
+    try{
+      const d=await txCol.add({name:t.name,code:t.code,amount:Number(t.amount)||0,party:t.party||'',note:t.note||'',status:'pending',time:Date.now()});
+      txId=d&&d._id;
+      txs=await txCol.list({orderBy:'_created',desc:true});renderHist();renderBudget();
+    }catch(e){toast('Could not log payment')}
+    dial(code,{txId});
+  };
+}
+$('#exportBtn').onclick=async()=>{
+  if(!txs.length){toast('Nothing to export');return}
+  const q=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
+  const csv='Date,Name,Note,Party,Amount,Status,Reference,Code,Auto\n'+txs.map(t=>[new Date(t.time||t._created).toISOString(),t.name,t.note,t.party,t.amount,t.status,t.ref,maskPin(t.code||''),t.autoConfirmed?'yes':''].map(q).join(',')).join('\n');
+  const name='ussd-transactions-'+new Date().toISOString().slice(0,10)+'.csv';
+  const blob=new Blob([csv],{type:'text/csv'});
+  if(window.Acornix&&window.Acornix.files){try{await Acornix.files.save(name,blob);toast('Saved '+name+' to app files');return}catch(e){}}
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();toast('Exported');
+};
+
+/* ---------- Favorite merchants ---------- */
+async function addMerchant(name,code){
+  name=String(name||'').trim();code=clean(code);
+  if(!name){toast('Enter a merchant name');return false}
+  if(!code){toast('Enter a merchant code');return false}
+  try{
+    const ex=merchants.find(m=>m.code===code);
+    if(ex){await merCol.update(ex._id,{name});toast('Updated '+name)}
+    else{await merCol.add({name,code});toast('⭐ '+name+' saved')}
+    merchants=await merCol.list({orderBy:'name'});renderMerchants();return true;
+  }catch(e){toast('Could not save favorite');return false}
+}
+function renderMerchants(){
+  renderShop();
+  const el=$('#merList');
+  if(!merchants.length){el.innerHTML='<p class="hint" style="margin-top:8px">No favorites yet. Add one below, e.g. Doña Ray: 11732.</p>';return}
+  el.innerHTML=merchants.map(m=>`<div class="mer"><div class="mi">🏪</div><div class="t"><b>${esc(m.name)}</b><small>${esc(m.code)}</small></div>
+    <button class="ed" data-medit="${m._id}" aria-label="Edit">✎</button><button class="ed" data-mdel="${m._id}" aria-label="Delete">✕</button></div>`).join('');
+}
+$('#merList').onclick=e=>{
+  const d=e.target.closest('[data-mdel]');
+  if(d){const m=merchants.find(x=>x._id===d.dataset.mdel);if(!m)return;
+    confirmBox('Remove "'+m.name+'" from favorites?','Remove',async()=>{await merCol.remove(m._id);merchants=await merCol.list({orderBy:'name'});renderMerchants();toast('Removed')});return}
+  const ed=e.target.closest('[data-medit]');
+  if(ed){const m=merchants.find(x=>x._id===ed.dataset.medit);if(!m)return;
+    openSheet(`<h3>Edit favorite</h3><label>Name</label><input id="fmName" value="${esc(m.name)}" maxlength="40"><label>Code</label><input id="fmCode" class="mono" inputmode="numeric" value="${esc(m.code)}" maxlength="20">
+      <div class="btns"><button class="btn ghost" id="fmNo">Cancel</button><button class="btn pri" id="fmSave">Save</button></div>`);
+    $('#fmNo').onclick=closeSheet;
+    $('#fmSave').onclick=async()=>{const name=$('#fmName').value.trim(),code=clean($('#fmCode').value);
+      if(!name||!code){toast('Name and code are required');return}
+      if(merchants.some(x=>x.code===code&&x._id!==m._id)){toast('Another favorite already uses that code');return}
+      await merCol.update(m._id,{name,code});merchants=await merCol.list({orderBy:'name'});renderMerchants();closeSheet();toast('Saved')};
+  }
+};
+$('#merAdd').onclick=async()=>{
+  const code=clean($('#merCode').value);const ex=merchants.find(m=>m.code===code);
+  if(ex&&ex.name===$('#merName').value.trim()){toast('Already saved as '+ex.name);return}
+  if(await addMerchant($('#merName').value,$('#merCode').value)){$('#merName').value='';$('#merCode').value=''}
+};
+$('#merCode').addEventListener('keydown',e=>{if(e.key==='Enter')$('#merAdd').click()});
+
+/* ---------- Profile ---------- */
+let profT;
+function saveProfile(){clearTimeout(profT);profT=setTimeout(()=>{Promise.resolve(DB.set('profile',profile)).catch(()=>toast('Could not save profile'));renderCodes()},300)}
+function setMsg(id,text,cls){const el=$('#'+id);el.textContent=text;el.className='hint'+(cls?' '+cls:'')}
+function showProfileMsgs(){
+  const d=$('#setDni').value,p=$('#setPin').value;
+  if(!d)setMsg('dniMsg','May start with zero.','');
+  else if(/^\d{13}$/.test(d))setMsg('dniMsg','✅ DNI saved','good');
+  else setMsg('dniMsg',d.length+'/13 digits — not saved yet','warn');
+  if(!p)setMsg('pinMsg','','');
+  else if(p.length===4)setMsg('pinMsg','✅ PIN saved','good');
+  else setMsg('pinMsg',p.length+'/4 characters — not saved yet','warn');
+}
+$('#setDni').addEventListener('input',e=>{
+  const v=e.target.value.replace(/\D/g,'').slice(0,13);e.target.value=v;
+  if(!v||v.length===13){profile.dni=v;saveProfile()}
+  showProfileMsgs();
+});
+$('#setPin').addEventListener('input',e=>{
+  const v=e.target.value.replace(/\s/g,'').slice(0,4);e.target.value=v;
+  if(!v||v.length===4){profile.pin=v;saveProfile()}
+  showProfileMsgs();
+});
+$('#pinEye').onclick=()=>{const i=$('#setPin');const show=i.type==='password';i.type=show?'text':'password';$('#pinEye').textContent=show?'🙈':'👁️'};
+
+/* ---------- Settings ---------- */
+function shopMsg(v,ok){
+  if(ok)setMsg('shopMsg','✅ Saved','good');
+  else if(!v)setMsg('shopMsg','Empty — using default '+DEFAULT_SHOP,'');
+  else setMsg('shopMsg','Must use digits, * and #, and include {merchant} — not saved yet','warn');
+}
+function renderSettings(){
+  $('#setAmoled').checked=!!settings.amoled;
+  $('#setAuto').checked=!!settings.autoConfirm;
+  if(document.activeElement&&document.activeElement.closest('#tab-set')&&document.activeElement.tagName==='INPUT')return;
+  $('#setCur').value=settings.cur;$('#setBudget').value=settings.budget;$('#setLarge').value=settings.large;
+  $('#setShopTpl').value=shopTpl();setMsg('shopMsg','','');
+  $('#setDni').value=profile.dni||'';$('#setPin').value=profile.pin||'';showProfileMsgs();
+}
+let setT;
+const saveSettings=()=>{clearTimeout(setT);setT=setTimeout(()=>DB.set('settings',settings),300)};
+['#setCur','#setBudget','#setLarge'].forEach(s=>$(s).addEventListener('input',()=>{
+  settings.cur=$('#setCur').value.trim()||'$';settings.budget=Number($('#setBudget').value)||0;settings.large=Number($('#setLarge').value)||0;
+  renderBudget();renderHist();saveSettings();
+}));
+$('#setShopTpl').addEventListener('input',e=>{
+  const v=e.target.value.replace(/\s+/g,'');
+  if(!v){settings.shopTpl=DEFAULT_SHOP;saveSettings();shopMsg('',false);return}
+  const ok=/^[*#0-9{}\w]+$/.test(v)&&/[*#]/.test(v)&&placeholders(v).some(isMerField)&&!placeholders(v).some(p=>/password|otp/i.test(p));
+  if(ok){settings.shopTpl=v;saveSettings()}
+  shopMsg(v,ok);
+});
+$('#setAmoled').addEventListener('change',e=>{settings.amoled=e.target.checked;applyTheme();DB.set('settings',settings);toast(settings.amoled?'AMOLED mode on':'AMOLED mode off')});
+$('#clearHist').onclick=()=>confirmBox('All transaction history will be deleted.','Clear',async()=>{await txCol.clear();txs=[];renderHist();renderBudget();toast('History cleared')});
+$('#resetCodes').onclick=()=>confirmBox('Replace your services with the example codes?','Reset',async()=>{await codesCol.clear();for(const c of DEFAULT_CODES)await codesCol.add(c);await DB.set('balTplV2',true);codes=await codesCol.list({orderBy:'order'});renderCodes();toast('Codes reset')});
+
+/* ---------- Tabs ---------- */
+function switchTab(t){curTab=t;document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x.id==='tab-'+t));document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));$('#fab').style.display=t==='pay'?'':'none';$('main').scrollTop=0}
+$('#nav').onclick=e=>{const b=e.target.closest('button');if(b)switchTab(b.dataset.t)};
+$('#fab').onclick=()=>openCodeEditor(null);
+
+load();
+</script>
+<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092" integrity="sha512-UKNk8GbxkABxKcXYuLkO16EleLGUkcvJWtpSNmExE0Too3ZaFAxTscNWEc1OdAv5/BikHawapSCaiD2XCmp+Bw==" data-cf-beacon='{"version":"2024.11.0","token":"8607d2a720d14b038279025b2b5a82e5","spa":2}' crossorigin="anonymous"></script>
+</body>
+</html>
