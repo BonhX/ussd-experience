@@ -89,4 +89,4 @@ Distribuido bajo la licencia MIT. Consulta el archivo `LICENSE` para más inform
 
 ## Autor
 
-**TU NOMBRE** - [@TU_USUARIO](https://github.com/TU_USUARIO)
+**BonhX** - [https://github.com/BonhX]
