@@ -1,15 +1,14 @@
 {
   "name": "donarae",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "App Android para ejecutar códigos USSD de forma rápida y organizada",
+  "author": "TU NOMBRE",
+  "license": "MPL-2.0",
+  "private": true,
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "sync": "npx cap sync android",
+    "open": "npx cap open android"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
   "dependencies": {
     "@capacitor/android": "^8.6.0",
     "@capacitor/cli": "^8.6.0",
