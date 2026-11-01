@@ -38,7 +38,7 @@ USSD Experience simplifica el uso de códigos USSD (como consultas de saldo, paq
 - JDK 17
 - Git
 
-## Instalación y ejecución
+<!--## Instalación y ejecución
 
 ```bash
 # 1. Clonar el repositorio
@@ -55,8 +55,9 @@ npx cap sync android
 npx cap open android
 ```
 
-Desde Android Studio puedes ejecutar la app en un emulador o dispositivo físico, o generar el APK en **Build > Build Bundle(s) / APK(s) > Build APK(s)**.
 
+Desde Android Studio puedes ejecutar la app en un emulador o dispositivo físico, o generar el APK en **Build > Build Bundle(s) / APK(s) > Build APK(s)**.
+-->
 ## Descargar el APK
 
 Puedes descargar la última versión desde la sección [Releases](https://github.com/TU_USUARIO/TU_REPO/releases).
